@@ -116,7 +116,7 @@ pub fn get_dependencies_from_cargo_lock() -> Result<Vec<Dependency>> {
                                                                            n.get("source")
                                                                        })
                                                                        .and_then(|n| n.as_str())
-                                                                       .unwrap()
+                                                                       .unwrap_or("")
                                                                        .to_owned(),
                                                           }
                                                       })
