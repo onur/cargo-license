@@ -8,10 +8,12 @@ A cargo subcommand to see license of dependencies.
 
 ## Installation and Usage
 
-You can install cargo-license with cargo: `cargo install cargo-license` and you
-can run it in your project directory with: `cargo license`.
+You can install cargo-license with: `cargo install cargo-license` and
+run it in your project directory with: `cargo license`.
 
 
 ## Example
+
+`cargo-license` running inside the cargo-license project directory:
 
 ![cargo-license](https://i.imgur.com/9KARkwP.png)
