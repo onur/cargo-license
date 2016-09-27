@@ -10,7 +10,7 @@ fn main() {
 
     let mut table: BTreeMap<String, Vec<String>> = BTreeMap::new();
 
-    for dependency in dependencies {
+    for mut dependency in dependencies {
         let license = dependency.get_license();
         if !table.contains_key(&license) {
             table.insert(license, vec![dependency.name]);
@@ -21,5 +21,16 @@ fn main() {
 
     for (license, crates) in table {
         println!("{} ({}): {}", Green.bold().paint(license), crates.len(), crates.join(", "));
+    }
+
+    let mut deps = cargo_license::get_dependency_tree().unwrap();
+    for incompat in cargo_license::verify_license_compatibility(&mut deps).iter() {
+        println!("{} {} ({}) has an incompatible license with {} {} ({})",
+                 incompat.crate1,
+                 incompat.crate1_version,
+                 incompat.crate1_license,
+                 incompat.crate2,
+                 incompat.crate2_version,
+                 incompat.crate2_license);
     }
 }
