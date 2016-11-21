@@ -61,13 +61,28 @@ impl Dependency {
             .unwrap_or(Err(human("PKG download error")))
     }
 
+    fn normalize(&self, license_string: &Option<String>) -> Option<String> {
+        match license_string {
+            &None => None,
+            &Some(ref license) => {
+                let mut list : Vec<&str> = license.split('/').collect();
+                for elem in list.iter_mut() {
+                    *elem = elem.trim();
+                }
+                list.sort();
+                list.dedup();
+                Some(list.join(" / "))
+            }
+        }
+    }
+
     pub fn get_license(&self) -> String {
         // FIXME: So many N/A's
         if !self.source.starts_with("registry") {
             "N/A".to_owned()
         } else {
             match self.get_cargo_package() {
-                Ok(pkg) => pkg.manifest().metadata().license.clone().unwrap_or("N/A".to_owned()),
+                Ok(pkg) => self.normalize(&pkg.manifest().metadata().license).unwrap_or("N/A".to_owned()),
                 Err(_) => "N/A".to_owned(),
             }
         }
