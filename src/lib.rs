@@ -71,7 +71,7 @@ impl Dependency {
                 }
                 list.sort();
                 list.dedup();
-                Some(list.join(" / "))
+                Some(list.join("/"))
             }
         }
     }
