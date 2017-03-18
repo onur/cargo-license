@@ -54,20 +54,21 @@ impl Dependency {
         // update crates.io-index registry
         try!(source.update());
 
-        let dep = try!(CargoDependency::parse_no_deprecated(&self.name,
-                                                            Some(&self.version),
-                                                            &source_id));
+        let dep =
+            try!(CargoDependency::parse_no_deprecated(&self.name, Some(&self.version), &source_id));
         let deps = try!(source.query(&dep));
-        deps.iter().map(|p| p.package_id()).max()
-                   .map(|pkgid| source.download(pkgid))
-                   .unwrap_or(Err(human("PKG download error")))
+        deps.iter()
+            .map(|p| p.package_id())
+            .max()
+            .map(|pkgid| source.download(pkgid))
+            .unwrap_or(Err(human("PKG download error")))
     }
 
     fn normalize(&self, license_string: &Option<String>) -> Option<String> {
         match license_string {
             &None => None,
             &Some(ref license) => {
-                let mut list : Vec<&str> = license.split('/').collect();
+                let mut list: Vec<&str> = license.split('/').collect();
                 for elem in list.iter_mut() {
                     *elem = elem.trim();
                 }
@@ -84,7 +85,10 @@ impl Dependency {
             "N/A".to_owned()
         } else {
             match self.get_cargo_package() {
-                Ok(pkg) => self.normalize(&pkg.manifest().metadata().license).unwrap_or("N/A".to_owned()),
+                Ok(pkg) => {
+                    self.normalize(&pkg.manifest().metadata().license)
+                        .unwrap_or("N/A".to_owned())
+                }
                 Err(_) => "N/A".to_owned(),
             }
         }
@@ -113,32 +117,28 @@ pub fn get_dependencies_from_cargo_lock() -> Result<Vec<Dependency>> {
                                                  .and_then(|p| p.as_slice())
                                                  .ok_or("Package not found")
                                                  .map(|p| {
-                                                     p.iter()
-                                                      .map(|p| {
-                                                          Dependency {
-                                                              name: p.as_table()
-                                                                     .and_then(|n| n.get("name"))
-                                                                     .and_then(|n| n.as_str())
-                                                                     .unwrap()
-                                                                     .to_owned(),
-                                                              version: p.as_table()
-                                                                        .and_then(|n| {
-                                                                            n.get("version")
-                                                                        })
-                                                                        .and_then(|n| n.as_str())
-                                                                        .unwrap()
-                                                                        .to_owned(),
-                                                              source: p.as_table()
-                                                                       .and_then(|n| {
-                                                                           n.get("source")
-                                                                       })
-                                                                       .and_then(|n| n.as_str())
-                                                                       .unwrap_or("")
-                                                                       .to_owned(),
-                                                          }
-                                                      })
-                                                      .collect()
-                                                 }));
+        p.iter()
+            .map(|p| {
+                Dependency {
+                    name: p.as_table()
+                        .and_then(|n| n.get("name"))
+                        .and_then(|n| n.as_str())
+                        .unwrap()
+                        .to_owned(),
+                    version: p.as_table()
+                        .and_then(|n| n.get("version"))
+                        .and_then(|n| n.as_str())
+                        .unwrap()
+                        .to_owned(),
+                    source: p.as_table()
+                        .and_then(|n| n.get("source"))
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("")
+                        .to_owned(),
+                }
+            })
+            .collect()
+    }));
 
     Ok(dependencies)
 }

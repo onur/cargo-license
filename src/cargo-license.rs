@@ -20,6 +20,9 @@ fn main() {
     }
 
     for (license, crates) in table {
-        println!("{} ({}): {}", Green.bold().paint(license), crates.len(), crates.join(", "));
+        println!("{} ({}): {}",
+                 Green.bold().paint(license),
+                 crates.len(),
+                 crates.join(", "));
     }
 }
