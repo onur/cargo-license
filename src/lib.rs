@@ -19,7 +19,7 @@ error_chain! {
     links {}
 
     foreign_links {
-        io::Error, Io, "IO Error";
+        Io(io::Error);
     }
 
     errors {}
@@ -38,7 +38,7 @@ impl Dependency {
         use cargo::core::{Source, SourceId, Registry};
         use cargo::core::Dependency as CargoDependency;
         use cargo::util::{Config, human};
-        use cargo::sources::RegistrySource;
+        use cargo::sources::SourceConfigMap;
 
         // TODO: crates-license is only working for crates.io registry
         if !self.source.starts_with("registry") {
@@ -46,19 +46,21 @@ impl Dependency {
         }
 
         let config = try!(Config::default());
-        let source_id = SourceId::from_url(&self.source);
-        let mut source = RegistrySource::new(&source_id, &config);
+        let source_id = try!(SourceId::from_url(&self.source));
+
+        let source_map = try!(SourceConfigMap::new(&config));
+        let mut source = try!(source_map.load(&source_id));
 
         // update crates.io-index registry
         try!(source.update());
 
-        let dep = try!(CargoDependency::parse(&self.name, Some(&self.version), &source_id));
+        let dep = try!(CargoDependency::parse_no_deprecated(&self.name,
+                                                            Some(&self.version),
+                                                            &source_id));
         let deps = try!(source.query(&dep));
-        deps.iter()
-            .map(|p| p.package_id())
-            .max()
-            .map(|pkgid| source.download(pkgid))
-            .unwrap_or(Err(human("PKG download error")))
+        deps.iter().map(|p| p.package_id()).max()
+                   .map(|pkgid| source.download(pkgid))
+                   .unwrap_or(Err(human("PKG download error")))
     }
 
     fn normalize(&self, license_string: &Option<String>) -> Option<String> {
