@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/onur/cargo-license"
 
 [dependencies]
-cargo = "0.17"
+cargo = "0.19"
 error-chain = "0.10"
 toml = "0.2"
 ansi_term = "0.9"
