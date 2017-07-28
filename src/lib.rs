@@ -41,7 +41,7 @@ impl Dependency {
 
         // TODO: crates-license is only working for crates.io registry
         if !self.source.starts_with("registry") {
-            unimplemented!();
+            Err(human("registry sources are unimplemented"))?;
         }
 
         let config = Config::default()?;
@@ -79,15 +79,11 @@ impl Dependency {
     }
 
     pub fn get_license(&self) -> Option<String> {
-        if !self.source.starts_with("registry") {
-            None
-        } else {
-            match self.get_cargo_package() {
-                Ok(pkg) => {
-                    self.normalize(&pkg.manifest().metadata().license)
-                }
-                Err(_) => None,
+        match self.get_cargo_package() {
+            Ok(pkg) => {
+                self.normalize(&pkg.manifest().metadata().license)
             }
+            Err(_) => None,
         }
     }
 }
