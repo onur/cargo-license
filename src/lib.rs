@@ -79,17 +79,15 @@ impl Dependency {
         }
     }
 
-    pub fn get_license(&self) -> String {
-        // FIXME: So many N/A's
+    pub fn get_license(&self) -> Option<String> {
         if !self.source.starts_with("registry") {
-            "N/A".to_owned()
+            None
         } else {
             match self.get_cargo_package() {
                 Ok(pkg) => {
                     self.normalize(&pkg.manifest().metadata().license)
-                        .unwrap_or("N/A".to_owned())
                 }
-                Err(_) => "N/A".to_owned(),
+                Err(_) => None,
             }
         }
     }
@@ -153,7 +151,7 @@ mod test {
     fn test() {
 
         for dependency in get_dependencies_from_cargo_lock().unwrap() {
-            assert!(!dependency.get_license().is_empty());
+            assert!(!dependency.get_license().unwrap().is_empty());
         }
     }
 }
