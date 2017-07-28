@@ -10,6 +10,7 @@ repository = "https://github.com/onur/cargo-license"
 [dependencies]
 cargo = "0.19"
 error-chain = "0.10"
+getopts = "0.2.14"
 toml = "0.2"
 ansi_term = "0.9"
 

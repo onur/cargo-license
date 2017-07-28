@@ -24,7 +24,7 @@ error_chain! {
     errors {}
 }
 
-
+#[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Dependency {
     pub name: String,
     pub version: String,
@@ -76,6 +76,11 @@ impl Dependency {
                 Some(list.join("/"))
             }
         }
+    }
+
+    pub fn get_authors(&self) -> CargoResult<Vec<String>> {
+        let pkg = self.get_cargo_package()?;
+        Ok(pkg.manifest().metadata().authors.clone())
     }
 
     pub fn get_license(&self) -> Option<String> {
