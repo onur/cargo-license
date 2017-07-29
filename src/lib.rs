@@ -5,9 +5,8 @@ extern crate toml;
 #[macro_use]
 extern crate error_chain;
 
-
 use std::io;
-
+use cargo::util::CargoResult;
 
 // I thought this crate is a good example to learn error_chain
 // but looks like no need of it in this crate
@@ -25,7 +24,7 @@ error_chain! {
     errors {}
 }
 
-
+#[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct Dependency {
     pub name: String,
     pub version: String,
@@ -34,7 +33,7 @@ pub struct Dependency {
 
 
 impl Dependency {
-    fn get_cargo_package(&self) -> cargo::util::CargoResult<cargo::core::Package> {
+    fn get_cargo_package(&self) -> CargoResult<cargo::core::Package> {
         use cargo::core::{Source, SourceId, Registry};
         use cargo::core::Dependency as CargoDependency;
         use cargo::util::{Config, human};
@@ -42,21 +41,21 @@ impl Dependency {
 
         // TODO: crates-license is only working for crates.io registry
         if !self.source.starts_with("registry") {
-            unimplemented!();
+            Err(human("registry sources are unimplemented"))?;
         }
 
-        let config = try!(Config::default());
-        let source_id = try!(SourceId::from_url(&self.source));
+        let config = Config::default()?;
+        let source_id = SourceId::from_url(&self.source)?;
 
-        let source_map = try!(SourceConfigMap::new(&config));
-        let mut source = try!(source_map.load(&source_id));
+        let source_map = SourceConfigMap::new(&config)?;
+        let mut source = source_map.load(&source_id)?;
 
         // update crates.io-index registry
-        try!(source.update());
+        source.update()?;
 
         let dep =
-            try!(CargoDependency::parse_no_deprecated(&self.name, Some(&self.version), &source_id));
-        let deps = try!(source.query(&dep));
+            CargoDependency::parse_no_deprecated(&self.name, Some(&self.version), &source_id)?;
+        let deps = source.query(&dep)?;
         deps.iter()
             .map(|p| p.package_id())
             .max()
@@ -79,18 +78,17 @@ impl Dependency {
         }
     }
 
-    pub fn get_license(&self) -> String {
-        // FIXME: So many N/A's
-        if !self.source.starts_with("registry") {
-            "N/A".to_owned()
-        } else {
-            match self.get_cargo_package() {
-                Ok(pkg) => {
-                    self.normalize(&pkg.manifest().metadata().license)
-                        .unwrap_or("N/A".to_owned())
-                }
-                Err(_) => "N/A".to_owned(),
+    pub fn get_authors(&self) -> CargoResult<Vec<String>> {
+        let pkg = self.get_cargo_package()?;
+        Ok(pkg.manifest().metadata().authors.clone())
+    }
+
+    pub fn get_license(&self) -> Option<String> {
+        match self.get_cargo_package() {
+            Ok(pkg) => {
+                self.normalize(&pkg.manifest().metadata().license)
             }
+            Err(_) => None,
         }
     }
 }
@@ -102,15 +100,15 @@ pub fn get_dependencies_from_cargo_lock() -> Result<Vec<Dependency>> {
         use std::fs::File;
         use std::io::Read;
 
-        let lock_file = try!(File::open("Cargo.lock"));
+        let lock_file = File::open("Cargo.lock")?;
         let mut reader = io::BufReader::new(lock_file);
         let mut content = String::new();
-        try!(reader.read_to_string(&mut content));
+        reader.read_to_string(&mut content)?;
         content
     };
 
     // This code once was beautiful, but it became ugly after rustfmt
-    let dependencies: Vec<Dependency> = try!(toml::Parser::new(&toml)
+    let dependencies: Vec<Dependency> = toml::Parser::new(&toml)
                                                  .parse()
                                                  .as_ref()
                                                  .and_then(|p| p.get("package"))
@@ -138,7 +136,7 @@ pub fn get_dependencies_from_cargo_lock() -> Result<Vec<Dependency>> {
                 }
             })
             .collect()
-    }));
+    })?;
 
     Ok(dependencies)
 }
@@ -153,7 +151,7 @@ mod test {
     fn test() {
 
         for dependency in get_dependencies_from_cargo_lock().unwrap() {
-            assert!(!dependency.get_license().is_empty());
+            assert!(!dependency.get_license().unwrap().is_empty());
         }
     }
 }
