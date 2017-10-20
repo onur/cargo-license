@@ -9,7 +9,19 @@ A cargo subcommand to see license of dependencies.
 ## Installation and Usage
 
 You can install cargo-license with: `cargo install cargo-license` and
-run it in your project directory with: `cargo license`.
+run it in your project directory with: `cargo license` or `cargo-license`.
+
+```
+Usage: cargo-license [options]
+
+Options:
+    -a, --authors       Display crate authors
+    -d, --do-not-bundle 
+                        Output one license per line.
+    -h, --help          print this help menu
+
+```
+
 
 
 ## Example
