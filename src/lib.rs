@@ -1,12 +1,14 @@
-
-
 extern crate cargo;
-extern crate toml;
 #[macro_use]
 extern crate error_chain;
+extern crate toml;
 
 use std::io;
 use cargo::util::CargoResult;
+use std::fs::File;
+use std::fs::read_dir;
+use std::io::prelude::*;
+use std::io::BufReader;
 
 // I thought this crate is a good example to learn error_chain
 // but looks like no need of it in this crate
@@ -31,12 +33,11 @@ pub struct Dependency {
     pub source: String,
 }
 
-
 impl Dependency {
     fn get_cargo_package(&self) -> CargoResult<cargo::core::Package> {
-        use cargo::core::{Source, SourceId, Registry};
+        use cargo::core::{Registry, Source, SourceId};
         use cargo::core::Dependency as CargoDependency;
-        use cargo::util::{Config, human};
+        use cargo::util::{human, Config};
         use cargo::sources::SourceConfigMap;
 
         // TODO: crates-license is only working for crates.io registry
@@ -85,15 +86,37 @@ impl Dependency {
 
     pub fn get_license(&self) -> Option<String> {
         match self.get_cargo_package() {
-            Ok(pkg) => {
-                self.normalize(&pkg.manifest().metadata().license)
-            }
+            Ok(pkg) => self.normalize(&pkg.manifest().metadata().license),
             Err(_) => None,
         }
     }
+
+    pub fn get_license_text(&self) -> Option<Vec<String>> {
+        let pkg = self.get_cargo_package().ok()?;
+        let root = pkg.root();
+        Some(
+            read_dir(root)
+                .ok()?
+                .filter_map(|entry| entry.ok())
+                .filter(|entry| {
+                    entry
+                        .file_name()
+                        .to_str()
+                        .map(|s| s.to_lowercase().starts_with("license"))
+                        .unwrap_or_else(|| false)
+                })
+                .filter_map(|entry| {
+                    File::open(entry.path()).ok().map(|f| {
+                        let mut b = BufReader::new(f);
+                        let mut s = String::new();
+                        let _ = b.read_to_string(&mut s);
+                        s
+                    })
+                })
+                .collect(),
+        )
+    }
 }
-
-
 
 pub fn get_dependencies_from_cargo_lock() -> Result<Vec<Dependency>> {
     let toml = {
@@ -109,15 +132,14 @@ pub fn get_dependencies_from_cargo_lock() -> Result<Vec<Dependency>> {
 
     // This code once was beautiful, but it became ugly after rustfmt
     let dependencies: Vec<Dependency> = toml::Parser::new(&toml)
-                                                 .parse()
-                                                 .as_ref()
-                                                 .and_then(|p| p.get("package"))
-                                                 .and_then(|p| p.as_slice())
-                                                 .ok_or("Package not found")
-                                                 .map(|p| {
-        p.iter()
-            .map(|p| {
-                Dependency {
+        .parse()
+        .as_ref()
+        .and_then(|p| p.get("package"))
+        .and_then(|p| p.as_slice())
+        .ok_or("Package not found")
+        .map(|p| {
+            p.iter()
+                .map(|p| Dependency {
                     name: p.as_table()
                         .and_then(|n| n.get("name"))
                         .and_then(|n| n.as_str())
@@ -133,15 +155,12 @@ pub fn get_dependencies_from_cargo_lock() -> Result<Vec<Dependency>> {
                         .and_then(|n| n.as_str())
                         .unwrap_or("")
                         .to_owned(),
-                }
-            })
-            .collect()
-    })?;
+                })
+                .collect()
+        })?;
 
     Ok(dependencies)
 }
-
-
 
 #[cfg(test)]
 mod test {
@@ -149,7 +168,6 @@ mod test {
 
     #[test]
     fn test() {
-
         for dependency in get_dependencies_from_cargo_lock().unwrap() {
             assert!(!dependency.get_license().unwrap().is_empty());
         }

@@ -1,6 +1,5 @@
-
-extern crate cargo_license;
 extern crate ansi_term;
+extern crate cargo_license;
 extern crate getopts;
 
 use std::env;
@@ -10,15 +9,29 @@ use std::collections::BTreeSet;
 use std::collections::btree_map::Entry::*;
 use ansi_term::Colour::Green;
 
-fn group_by_license_type(dependencies: Vec<cargo_license::Dependency>, display_authors: bool) {
+fn print_full_licenses(dependencies: Vec<cargo_license::Dependency>) {
+    for dependency in dependencies {
+        if let Some(licenses) = dependency.get_license_text() {
+            println!("{}:", dependency.name);
+            for license in licenses {
+                println!("{}", license);
+            }
+        }
+    }
+}
 
+fn group_by_license_type(dependencies: Vec<cargo_license::Dependency>, display_authors: bool) {
     let mut table: BTreeMap<String, Vec<cargo_license::Dependency>> = BTreeMap::new();
 
     for dependency in dependencies {
         let license = dependency.get_license().unwrap_or("N/A".to_owned());
         match table.entry(license) {
-            Vacant(e) => {e.insert(vec![dependency]);},
-            Occupied(mut e) => {e.get_mut().push(dependency);},
+            Vacant(e) => {
+                e.insert(vec![dependency]);
+            }
+            Occupied(mut e) => {
+                e.get_mut().push(dependency);
+            }
         };
     }
 
@@ -26,26 +39,29 @@ fn group_by_license_type(dependencies: Vec<cargo_license::Dependency>, display_a
         let crate_names = crates.iter().map(|c| c.name.clone()).collect::<Vec<_>>();
         if display_authors {
             let crate_authors = crates
-                    .iter()
-                    .flat_map(|c| c.get_authors().unwrap_or(vec![]))
-                    .collect::<BTreeSet<_>>();
-            println!("{} ({})\n{}\n{} {}",
-                     Green.bold().paint(license),
-                     crates.len(),
-                     crate_names.join(", "),
-                     Green.paint("by"),
-                     crate_authors.into_iter().collect::<Vec<_>>().join(", "));
+                .iter()
+                .flat_map(|c| c.get_authors().unwrap_or(vec![]))
+                .collect::<BTreeSet<_>>();
+            println!(
+                "{} ({})\n{}\n{} {}",
+                Green.bold().paint(license),
+                crates.len(),
+                crate_names.join(", "),
+                Green.paint("by"),
+                crate_authors.into_iter().collect::<Vec<_>>().join(", ")
+            );
         } else {
-            println!("{} ({}): {}",
-                     Green.bold().paint(license),
-                     crates.len(),
-                     crate_names.join(", "));
+            println!(
+                "{} ({}): {}",
+                Green.bold().paint(license),
+                crates.len(),
+                crate_names.join(", ")
+            );
         }
     }
 }
 
 fn one_license_per_line(dependencies: Vec<cargo_license::Dependency>, display_authors: bool) {
-
     for dependency in dependencies {
         let name = dependency.name.clone();
         let version = dependency.version.clone();
@@ -53,22 +69,25 @@ fn one_license_per_line(dependencies: Vec<cargo_license::Dependency>, display_au
         let source = dependency.source.clone();
         if display_authors {
             let authors = dependency.get_authors().unwrap_or(vec![]);
-            println!("{}: {}, \"{}\", {}, {} \"{}\"",
-                     Green.bold().paint(name),
-                     version,
-                     license,
-                     source,
-                     Green.paint("by"),
-                     authors.into_iter().collect::<Vec<_>>().join(", "));
+            println!(
+                "{}: {}, \"{}\", {}, {} \"{}\"",
+                Green.bold().paint(name),
+                version,
+                license,
+                source,
+                Green.paint("by"),
+                authors.into_iter().collect::<Vec<_>>().join(", ")
+            );
         } else {
-            println!("{}: {}, \"{}\", {}",
-                     Green.bold().paint(name),
-                     version,
-                     license,
-                     source);
+            println!(
+                "{}: {}, \"{}\", {}",
+                Green.bold().paint(name),
+                version,
+                license,
+                source
+            );
         }
-    };
-
+    }
 }
 
 fn print_usage(program: &str, opts: Options) {
@@ -82,12 +101,15 @@ fn main() {
     let program = args[0].clone();
     opts.optflag("a", "authors", "Display crate authors");
     opts.optflag("d", "do-not-bundle", "Output one license per line.");
+    opts.optflag("f", "full", "Display full licenses.");
     opts.optflag("h", "help", "print this help menu");
 
     let matches = match opts.parse(&args[1..]) {
         Ok(m) => m,
-        Err(f) => { print_usage(&program, opts); 
-            panic!(f.to_string()) }
+        Err(f) => {
+            print_usage(&program, opts);
+            panic!(f.to_string())
+        }
     };
     if matches.opt_present("h") {
         print_usage(&program, opts);
@@ -96,19 +118,24 @@ fn main() {
 
     let display_authors = matches.opt_present("authors");
     let do_not_bundle = matches.opt_present("do-not-bundle");
+    let display_full_licenses = matches.opt_present("full");
 
     let dependencies = match cargo_license::get_dependencies_from_cargo_lock() {
         Ok(m) => m,
         Err(err) => {
-            println!("Cargo.lock file not found. Try building the project first.\n{}", err);
+            println!(
+                "Cargo.lock file not found. Try building the project first.\n{}",
+                err
+            );
             std::process::exit(1);
         }
     };
 
-    if do_not_bundle {
+    if display_full_licenses {
+        print_full_licenses(dependencies);
+    } else if do_not_bundle {
         one_license_per_line(dependencies, display_authors);
     } else {
         group_by_license_type(dependencies, display_authors);
     }
-
 }
