@@ -11,11 +11,14 @@ use ansi_term::Colour::Green;
 
 fn print_full_licenses(dependencies: Vec<cargo_license::Dependency>) {
     for dependency in dependencies {
+        println!("{}:", dependency.name);
         if let Some(licenses) = dependency.get_license_text() {
-            println!("{}:", dependency.name);
             for license in licenses {
                 println!("{}", license);
             }
+        } else {
+            let license = dependency.get_license().unwrap_or("N/A".to_owned());
+            println!("Could not find license file. License(s) specified in crate: {}", license)
         }
     }
 }
