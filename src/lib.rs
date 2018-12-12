@@ -1,157 +1,187 @@
-
-
 extern crate cargo;
+#[macro_use]
+extern crate failure;
 extern crate toml;
 #[macro_use]
-extern crate error_chain;
+extern crate serde_derive;
 
-use std::io;
-use cargo::util::CargoResult;
+use cargo::core;
+use cargo::sources::SourceConfigMap;
+use cargo::util::{errors::internal, Config};
+use std::fs;
 
-// I thought this crate is a good example to learn error_chain
-// but looks like no need of it in this crate
-error_chain! {
-    types {
-        Error, ErrorKind, ChainErr, Result;
-    }
+pub type Result<T> = std::result::Result<T, failure::Error>;
 
-    links {}
-
-    foreign_links {
-        Io(io::Error);
-    }
-
-    errors {}
+#[derive(Debug, Fail)]
+pub enum LicenseError {
+    #[fail(display = "invalid configuration: {}", _0)]
+    InvalidConfiguration(String),
 }
 
-#[derive(Debug, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct Dependency {
+fn normalize(license_string: &Option<String>) -> Option<String> {
+    match license_string {
+        None => None,
+        Some(ref license) => {
+            let mut list: Vec<&str> = license.split('/').collect();
+            for elem in list.iter_mut() {
+                *elem = elem.trim();
+            }
+            list.sort();
+            list.dedup();
+            Some(list.join("|"))
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+pub struct DependencyDetails {
     pub name: String,
     pub version: String,
     pub source: String,
+    pub authors: Option<String>,
+    pub repository: Option<String>,
+    pub license: Option<String>,
+    pub license_file: Option<String>,
+    pub repository_tree: Option<String>,
+    pub homepage: Option<String>,
+    pub description: Option<String>,
 }
 
-
-impl Dependency {
-    fn get_cargo_package(&self) -> CargoResult<cargo::core::Package> {
-        use cargo::core::{Source, SourceId};
-        use cargo::core::Dependency as CargoDependency;
-        use cargo::util::{Config, errors::internal};
-        use cargo::sources::SourceConfigMap;
-
+impl DependencyDetails {
+    pub fn load(name: &str, version: &str, source: &str) -> Result<Vec<DependencyDetails>> {
         // TODO: crates-license is only working for crates.io registry
-        if !self.source.starts_with("registry") {
+        if !source.starts_with("registry") {
             Err(internal("registry sources are unimplemented"))?;
         }
 
         let config = Config::default()?;
-        let source_id = SourceId::from_url(&self.source)?;
-
+        let source_id = core::SourceId::from_url(source)?;
         let source_map = SourceConfigMap::new(&config)?;
-        let mut source = source_map.load(&source_id)?;
-
+        let mut source_cfg = source_map.load(&source_id)?;
         // update crates.io-index registry
-        source.update()?;
+        source_cfg.update()?;
 
-        let dep =
-            CargoDependency::parse_no_deprecated(&self.name, Some(&self.version), &source_id)?;
-        let deps = source.query_vec(&dep)?;
-        deps.iter()
-            .map(|p| p.package_id())
-            .max()
-            .map(|pkgid| source.download(pkgid))
-            .unwrap_or(Err(internal("PKG download error")))
-    }
+        let primary_dependency: core::Dependency =
+            core::Dependency::parse_no_deprecated(name, Some(version), &source_id)?;
+        let summaries = source_cfg.query_vec(&primary_dependency)?;
+        let mut dependencies: Vec<DependencyDetails> = Vec::new();
 
-    fn normalize(&self, license_string: &Option<String>) -> Option<String> {
-        match license_string {
-            &None => None,
-            &Some(ref license) => {
-                let mut list: Vec<&str> = license.split('/').collect();
-                for elem in list.iter_mut() {
-                    *elem = elem.trim();
+        for summery in summaries.iter() {
+            let pkg_id = summery.package_id();
+            let package = source_cfg.download(pkg_id)?;
+            let manifest_metadata = package.manifest().metadata();
+            let version = format!("{}", package.version());
+            let repo = &manifest_metadata.repository;
+
+            let repository_tree = match repo {
+                Some(r) => {
+                    if r.contains("github") || r.contains("gitlab") {
+                        Some(format!("{}/tree/v{}", r.to_owned(), version))
+                    } else {
+                        None
+                    }
                 }
-                list.sort();
-                list.dedup();
-                Some(list.join("/"))
-            }
-        }
-    }
+                None => None,
+            };
 
-    pub fn get_authors(&self) -> CargoResult<Vec<String>> {
-        let pkg = self.get_cargo_package()?;
-        Ok(pkg.manifest().metadata().authors.clone())
-    }
-
-    pub fn get_license(&self) -> Option<String> {
-        match self.get_cargo_package() {
-            Ok(pkg) => {
-                self.normalize(&pkg.manifest().metadata().license)
-            }
-            Err(_) => None,
+            dependencies.push(DependencyDetails {
+                name: package.name().as_str().into(),
+                version,
+                source: source.to_owned(),
+                authors: Some(package.authors().to_owned().join("|")),
+                repository: repo.to_owned(),
+                license: normalize(&manifest_metadata.license.to_owned()),
+                license_file: manifest_metadata.license_file.to_owned(),
+                repository_tree,
+                homepage: manifest_metadata.homepage.to_owned(),
+                description: manifest_metadata
+                    .description
+                    .to_owned()
+                    .map(|s| s.trim().replace("\n", " ")),
+            });
         }
+        Ok(dependencies)
     }
 }
 
-
-
-pub fn get_dependencies_from_cargo_lock() -> Result<Vec<Dependency>> {
-    let toml = {
-        use std::fs::File;
-        use std::io::Read;
-
-        let lock_file = File::open("Cargo.lock")?;
-        let mut reader = io::BufReader::new(lock_file);
-        let mut content = String::new();
-        reader.read_to_string(&mut content)?;
-        content
-    };
-
-    // This code once was beautiful, but it became ugly after rustfmt
-    let dependencies: Vec<Dependency> = toml::Parser::new(&toml)
-                                                 .parse()
-                                                 .as_ref()
-                                                 .and_then(|p| p.get("package"))
-                                                 .and_then(|p| p.as_slice())
-                                                 .ok_or("Package not found")
-                                                 .map(|p| {
-        p.iter()
-            .map(|p| {
-                Dependency {
-                    name: p.as_table()
-                        .and_then(|n| n.get("name"))
-                        .and_then(|n| n.as_str())
-                        .unwrap()
-                        .to_owned(),
-                    version: p.as_table()
-                        .and_then(|n| n.get("version"))
-                        .and_then(|n| n.as_str())
-                        .unwrap()
-                        .to_owned(),
-                    source: p.as_table()
-                        .and_then(|n| n.get("source"))
-                        .and_then(|n| n.as_str())
-                        .unwrap_or("")
-                        .to_owned(),
-                }
-            })
-            .collect()
+pub fn get_dependencies_from_cargo_lock() -> Result<Vec<DependencyDetails>> {
+    let cargo_toml_value = fs::read_to_string("Cargo.toml")?.parse::<toml::Value>()?;
+    let cargo_toml = cargo_toml_value.as_table().ok_or_else(|| {
+        LicenseError::InvalidConfiguration("Unexpected format in Cargo.toml".into())
     })?;
 
-    Ok(dependencies)
+    let cargo_lock_value = fs::read_to_string("Cargo.lock")?.parse::<toml::Value>()?;
+    let cargo_lock = cargo_lock_value.as_table().ok_or_else(|| {
+        LicenseError::InvalidConfiguration("Unexpected format in Cargo.lock".into())
+    })?;
+
+    let root_project = cargo_toml
+        .get("package")
+        .and_then(|x| x.get("name"))
+        .ok_or_else(|| {
+            LicenseError::InvalidConfiguration(
+                "Could not identify name of project in Cargo.toml".into(),
+            )
+        })?
+        .as_str()
+        .to_owned();
+
+    let packages = cargo_lock
+        .get("package")
+        .and_then(|p| p.as_array())
+        .ok_or_else(|| {
+            LicenseError::InvalidConfiguration("\"package\" not found in cargo.lock".into())
+        })?;
+
+    let mut detailed_dependencies: Vec<DependencyDetails> = Vec::new();
+
+    for package in packages.iter() {
+        let p_table = package.as_table();
+        let name = p_table
+            .and_then(|n| n.get("name"))
+            .and_then(|n| n.as_str())
+            .to_owned()
+            .ok_or_else(|| {
+                LicenseError::InvalidConfiguration(
+                    "Could not identify name of dependency in Cargo.toml".into(),
+                )
+            })?;
+        let version = p_table
+            .and_then(|n| n.get("version"))
+            .and_then(|n| n.as_str())
+            .ok_or_else(|| {
+                LicenseError::InvalidConfiguration(
+                    "Could not identify version of dependency in Cargo.toml".into(),
+                )
+            })?;
+        // The source is empty for the source crate.
+        // It can be exclude it since it isn't a dependency.
+        let source = p_table
+            .and_then(|n| n.get("source"))
+            .and_then(|n| n.as_str())
+            .unwrap_or("");
+
+        if source.is_empty() && Some(name) == root_project {
+            continue;
+        } else {
+            detailed_dependencies.append(&mut DependencyDetails::load(name, version, source)?);
+        }
+    }
+    Ok(detailed_dependencies)
 }
-
-
 
 #[cfg(test)]
 mod test {
-    use super::get_dependencies_from_cargo_lock;
+    use super::*;
 
     #[test]
-    fn test() {
-
-        for dependency in get_dependencies_from_cargo_lock().unwrap() {
-            assert!(!dependency.get_license().unwrap().is_empty());
+    fn test_detailed() {
+        let detailed_dependencies = get_dependencies_from_cargo_lock().unwrap();
+        assert!(!detailed_dependencies.is_empty());
+        for detailed_dependency in detailed_dependencies.iter() {
+            assert!(
+                detailed_dependency.license.is_some() || detailed_dependency.license_file.is_some()
+            );
         }
     }
 }
