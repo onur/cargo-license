@@ -69,25 +69,22 @@ fn one_license_per_line(
         let name = dependency.name.clone();
         let version = dependency.version.clone();
         let license = dependency.license.unwrap_or_else(|| "N/A".to_owned());
-        let source = dependency.source.clone();
         if display_authors {
             let authors = dependency.authors.unwrap_or_else(|| "N/A".to_owned());
             println!(
-                "{}: {}, \"{}\", {}, {} \"{}\"",
+                "{}: {}, \"{}\", {}, \"{}\"",
                 Green.bold().paint(name),
                 version,
                 license,
-                source,
                 Green.paint("by"),
                 authors
             );
         } else {
             println!(
-                "{}: {}, \"{}\", {}",
+                "{}: {}, \"{}\",",
                 Green.bold().paint(name),
                 version,
                 license,
-                source
             );
         }
     }
