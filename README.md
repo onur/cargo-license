@@ -5,7 +5,6 @@
 
 A cargo subcommand to see license of dependencies.
 
-
 ## Installation and Usage
 
 You can install cargo-license with: `cargo install cargo-license` and
@@ -16,13 +15,12 @@ Usage: cargo-license [options]
 
 Options:
     -a, --authors       Display crate authors
-    -d, --do-not-bundle 
+    -d, --do-not-bundle
                         Output one license per line.
+    -t, --tsv           detailed output as tab-separated-values
+    -j, --json          detailed output as json
     -h, --help          print this help menu
-
 ```
-
-
 
 ## Example
 
