@@ -1,15 +1,10 @@
 extern crate cargo_metadata;
-#[macro_use]
 extern crate failure;
 extern crate toml;
 #[macro_use]
 extern crate serde_derive;
 
 pub type Result<T> = std::result::Result<T, failure::Error>;
-
-#[derive(Debug, Fail)]
-#[fail(display = "{}", _0)]
-struct MetadataError(String);
 
 fn normalize(license_string: &Option<String>) -> Option<String> {
     match license_string {
@@ -65,8 +60,8 @@ impl DependencyDetails {
 pub fn get_dependencies_from_cargo_lock() -> Result<Vec<DependencyDetails>> {
     let mut path = std::env::current_dir()?;
     path.push("Cargo.toml");
-    let metadata = cargo_metadata::metadata_deps(Some(&path), true)
-        .map_err(|e| MetadataError(format!("{}", e)))?;
+    let metadata =
+        cargo_metadata::metadata_deps(Some(&path), true).map_err(failure::SyncFailure::new)?;
 
     let mut detailed_dependencies: Vec<DependencyDetails> = Vec::new();
     for package in metadata.packages {
