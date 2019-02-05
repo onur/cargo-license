@@ -35,14 +35,15 @@ pub struct Dependency {
 
 impl Dependency {
     fn get_cargo_package(&self) -> CargoResult<cargo::core::Package> {
-        use cargo::core::{Registry, Source, SourceId};
+        use cargo::core::{Source, SourceId};
         use cargo::core::Dependency as CargoDependency;
-        use cargo::util::{human, Config};
+        use cargo::util::Config;
         use cargo::sources::SourceConfigMap;
 
         // TODO: crates-license is only working for crates.io registry
         if !self.source.starts_with("registry") {
-            Err(human("registry sources are unimplemented"))?;
+            Err(std::io::Error::new(std::io::ErrorKind::Other,
+                                    "registry sources are unimplemented".to_owned()))?;
         }
 
         let config = Config::default()?;
@@ -56,12 +57,15 @@ impl Dependency {
 
         let dep =
             CargoDependency::parse_no_deprecated(&self.name, Some(&self.version), &source_id)?;
-        let deps = source.query(&dep)?;
-        deps.iter()
+        let packages = source.query_vec(&dep)?;
+        packages.iter()
             .map(|p| p.package_id())
             .max()
             .map(|pkgid| source.download(pkgid))
-            .unwrap_or(Err(human("PKG download error")))
+            .unwrap_or(
+                Err(cargo::util::CargoError::from_boxed_compat(
+                        Box::new(std::io::Error::new(std::io::ErrorKind::Other,
+                                    "PKG download error".to_owned())))))
     }
 
     fn normalize(&self, license_string: &Option<String>) -> Option<String> {
