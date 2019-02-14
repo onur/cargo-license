@@ -13,7 +13,7 @@ fn normalize(license_string: &str) -> String {
         .collect();
     list.sort();
     list.dedup();
-    list.join("|")
+    list.join("/")
 }
 
 #[derive(Debug, Serialize, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
