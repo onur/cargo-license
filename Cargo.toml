@@ -17,8 +17,3 @@ serde = "1"
 serde_derive = "1"
 serde_json = "1.0"
 cargo_metadata = "0.6.4"
-
-
-[[bin]]
-name = "cargo-license"
-path = "src/cargo-license.rs"
