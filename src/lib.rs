@@ -19,7 +19,7 @@ fn normalize(license_string: &str) -> String {
 #[derive(Debug, Serialize, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct DependencyDetails {
     pub name: String,
-    pub version: String,
+    pub version: semver::Version,
     pub authors: Option<String>,
     pub repository: Option<String>,
     pub license: Option<String>,
@@ -56,7 +56,7 @@ pub fn get_dependencies_from_cargo_lock() -> Result<Vec<DependencyDetails>> {
     let mut path = std::env::current_dir()?;
     path.push("Cargo.toml");
     let metadata =
-        cargo_metadata::metadata_deps(Some(&path), true).map_err(failure::SyncFailure::new)?;
+        cargo_metadata::MetadataCommand::new().manifest_path(&path).exec()?;
 
     let mut detailed_dependencies: Vec<DependencyDetails> = Vec::new();
     for package in metadata.packages {
