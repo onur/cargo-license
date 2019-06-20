@@ -1,10 +1,3 @@
-extern crate ansi_term;
-extern crate cargo_license;
-extern crate csv;
-extern crate failure;
-extern crate getopts;
-extern crate serde_json;
-
 use ansi_term::Colour::Green;
 use getopts::Options;
 use std::collections::btree_map::Entry::*;

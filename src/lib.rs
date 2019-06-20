@@ -1,6 +1,4 @@
-extern crate cargo_metadata;
-extern crate failure;
-extern crate toml;
+
 #[macro_use]
 extern crate serde_derive;
 

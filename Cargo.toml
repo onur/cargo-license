@@ -6,6 +6,7 @@ version = "0.2.0"
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/onur/cargo-license"
+edition = "2018"
 
 [dependencies]
 failure = "0.1"
