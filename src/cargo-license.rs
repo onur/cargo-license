@@ -6,13 +6,14 @@ extern crate getopts;
 extern crate serde_json;
 
 use ansi_term::Colour::Green;
-use getopts::Options;
 use std::collections::btree_map::Entry::*;
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
-use std::env;
 use std::io;
+use std::path::PathBuf;
 use std::process::exit;
+use structopt;
+use structopt::StructOpt;
 
 fn group_by_license_type(
     dependencies: Vec<cargo_license::DependencyDetails>,
@@ -107,48 +108,79 @@ fn write_json(dependencies: &[cargo_license::DependencyDetails]) -> cargo_licens
     Ok(())
 }
 
-fn print_usage(program: &str, opts: &Options) {
-    let brief = format!("Usage: {} [options]", program);
-    print!("{}", opts.usage(&brief));
+#[derive(Debug, StructOpt)]
+#[structopt(
+    name = "cargo_license",
+    about = "Cargo subcommand to see licenses of dependencies."
+)]
+struct Opt {
+    #[structopt(name = "PATH", long = "manifest-path", parse(from_os_str))]
+    /// Path to Cargo.toml.
+    manifest_path: Option<PathBuf>,
+
+    #[structopt(name = "CURRENT_DIR", long = "current-dir", parse(from_os_str))]
+    /// Current directory of the cargo metadata process.
+    current_dir: Option<PathBuf>,
+
+    #[structopt(short, long)]
+    /// Display crate authors
+    authors: bool,
+
+    #[structopt(short, long)]
+    /// Output one license per line.
+    do_not_bundle: bool,
+
+    #[structopt(short, long)]
+    /// Detailed output as tab-separated-values.
+    tsv: bool,
+
+    #[structopt(short, long)]
+    /// Detailed output as JSON.
+    json: bool,
+
+    #[structopt(long = "features", name = "FEATURE")]
+    /// Space-separated list of features to activate.
+    features: Option<Vec<String>>,
+
+    #[structopt(long = "all-features")]
+    /// Activate all available features.
+    all_features: bool,
+
+    #[structopt(long = "no-deps")]
+    /// Output information only about the root package and don't fetch dependencies.
+    no_deps: bool,
 }
 
 fn run() -> cargo_license::Result<()> {
-    let args: Vec<String> = env::args().collect();
-    let mut opts = Options::new();
-    let program = args[0].clone();
-    opts.optflag("a", "authors", "Display crate authors");
-    opts.optflag("d", "do-not-bundle", "Output one license per line.");
-    opts.optflag("t", "tsv", "detailed output as tab-separated-values");
-    opts.optflag("j", "json", "detailed output as json");
-    opts.optflag("h", "help", "print this help menu");
+    let opt = Opt::from_args();
+    let mut cmd = cargo_metadata::MetadataCommand::new();
 
-    let matches = match opts.parse(&args[1..]) {
-        Ok(m) => m,
-        Err(f) => {
-            print_usage(&program, &opts);
-            panic!(f.to_string())
-        }
-    };
-    if matches.opt_present("h") {
-        print_usage(&program, &opts);
-        return Ok(());
+    if let Some(path) = &opt.manifest_path {
+        cmd.manifest_path(path);
+    }
+    if let Some(dir) = &opt.current_dir {
+        cmd.current_dir(dir);
+    }
+    if opt.all_features {
+        cmd.features(cargo_metadata::CargoOpt::AllFeatures);
+    }
+    if opt.no_deps {
+        cmd.features(cargo_metadata::CargoOpt::NoDefaultFeatures);
+    }
+    if let Some(features) = opt.features {
+        cmd.features(cargo_metadata::CargoOpt::SomeFeatures(features));
     }
 
-    let display_authors = matches.opt_present("authors");
-    let do_not_bundle = matches.opt_present("do-not-bundle");
-    let tsv = matches.opt_present("tsv");
-    let json = matches.opt_present("json");
+    let dependencies = cargo_license::get_dependencies_from_cargo_lock(cmd)?;
 
-    let dependencies = cargo_license::get_dependencies_from_cargo_lock()?;
-
-    if tsv {
+    if opt.tsv {
         write_tsv(&dependencies)?
-    } else if json {
+    } else if opt.json {
         write_json(&dependencies)?
-    } else if do_not_bundle {
-        one_license_per_line(dependencies, display_authors);
+    } else if opt.do_not_bundle {
+        one_license_per_line(dependencies, opt.authors);
     } else {
-        group_by_license_type(dependencies, display_authors);
+        group_by_license_type(dependencies, opt.authors);
     }
     Ok(())
 }

@@ -52,11 +52,10 @@ impl DependencyDetails {
     }
 }
 
-pub fn get_dependencies_from_cargo_lock() -> Result<Vec<DependencyDetails>> {
-    let mut path = std::env::current_dir()?;
-    path.push("Cargo.toml");
-    let metadata =
-        cargo_metadata::MetadataCommand::new().manifest_path(&path).exec()?;
+pub fn get_dependencies_from_cargo_lock(
+    mut metadata_command: cargo_metadata::MetadataCommand,
+) -> Result<Vec<DependencyDetails>> {
+    let metadata = metadata_command.exec()?;
 
     let mut detailed_dependencies: Vec<DependencyDetails> = Vec::new();
     for package in metadata.packages {
@@ -71,7 +70,8 @@ mod test {
 
     #[test]
     fn test_detailed() {
-        let detailed_dependencies = get_dependencies_from_cargo_lock().unwrap();
+        let cmd = cargo_metadata::MetadataCommand::new();
+        let detailed_dependencies = get_dependencies_from_cargo_lock(cmd).unwrap();
         assert!(!detailed_dependencies.is_empty());
         for detailed_dependency in detailed_dependencies.iter() {
             assert!(
