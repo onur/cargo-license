@@ -12,7 +12,6 @@ use std::collections::BTreeSet;
 use std::io;
 use std::path::PathBuf;
 use std::process::exit;
-use structopt;
 use structopt::StructOpt;
 
 fn group_by_license_type(
