@@ -11,15 +11,26 @@ You can install cargo-license with: `cargo install cargo-license` and
 run it in your project directory with: `cargo license` or `cargo-license`.
 
 ```
-Usage: cargo-license [options]
+cargo_license 0.3.0
+Cargo subcommand to see licenses of dependencies.
 
-Options:
-    -a, --authors       Display crate authors
-    -d, --do-not-bundle
-                        Output one license per line.
-    -t, --tsv           detailed output as tab-separated-values
-    -j, --json          detailed output as json
-    -h, --help          print this help menu
+USAGE:
+    cargo-license [FLAGS] [OPTIONS]
+
+FLAGS:
+        --all-features     Activate all available features.
+    -a, --authors          Display crate authors
+    -d, --do-not-bundle    Output one license per line.
+    -h, --help             Prints help information
+    -j, --json             Detailed output as JSON.
+        --no-deps          Output information only about the root package and don't fetch dependencies.
+    -t, --tsv              Detailed output as tab-separated-values.
+    -V, --version          Prints version information
+
+OPTIONS:
+        --current-dir <CURRENT_DIR>    Current directory of the cargo metadata process.
+        --features <FEATURE>...        Space-separated list of features to activate.
+        --manifest-path <PATH>         Path to Cargo.toml.
 ```
 
 ## Example

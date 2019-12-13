@@ -9,17 +9,18 @@ pub type Result<T> = std::result::Result<T, failure::Error>;
 fn normalize(license_string: &str) -> String {
     let mut list: Vec<&str> = license_string
         .split('/')
-        .map(|e| e.trim())
+        .flat_map(|e| e.split(" OR "))
+        .map(str::trim)
         .collect();
     list.sort();
     list.dedup();
-    list.join("/")
+    list.join(" OR ")
 }
 
 #[derive(Debug, Serialize, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct DependencyDetails {
     pub name: String,
-    pub version: String,
+    pub version: semver::Version,
     pub authors: Option<String>,
     pub repository: Option<String>,
     pub license: Option<String>,
@@ -52,11 +53,10 @@ impl DependencyDetails {
     }
 }
 
-pub fn get_dependencies_from_cargo_lock() -> Result<Vec<DependencyDetails>> {
-    let mut path = std::env::current_dir()?;
-    path.push("Cargo.toml");
-    let metadata =
-        cargo_metadata::metadata_deps(Some(&path), true).map_err(failure::SyncFailure::new)?;
+pub fn get_dependencies_from_cargo_lock(
+    mut metadata_command: cargo_metadata::MetadataCommand,
+) -> Result<Vec<DependencyDetails>> {
+    let metadata = metadata_command.exec()?;
 
     let mut detailed_dependencies: Vec<DependencyDetails> = Vec::new();
     for package in metadata.packages {
@@ -71,7 +71,8 @@ mod test {
 
     #[test]
     fn test_detailed() {
-        let detailed_dependencies = get_dependencies_from_cargo_lock().unwrap();
+        let cmd = cargo_metadata::MetadataCommand::new();
+        let detailed_dependencies = get_dependencies_from_cargo_lock(cmd).unwrap();
         assert!(!detailed_dependencies.is_empty());
         for detailed_dependency in detailed_dependencies.iter() {
             assert!(
