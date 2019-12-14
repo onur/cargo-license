@@ -25,13 +25,14 @@ pub struct DependencyDetails {
 }
 
 impl DependencyDetails {
+    #[must_use]
     pub fn new(package: &cargo_metadata::Package) -> Self {
         let authors = if package.authors.is_empty() {
             None
         } else {
             Some(package.authors.to_owned().join("|"))
         };
-        DependencyDetails {
+        Self {
             name: package.name.to_owned(),
             version: package.version.to_owned(),
             authors,
@@ -40,7 +41,7 @@ impl DependencyDetails {
             license_file: package
                 .license_file
                 .to_owned()
-                .and_then(|f| f.to_str().map(|x| x.to_owned())),
+                .and_then(|f| f.to_str().map(std::borrow::ToOwned::to_owned)),
             description: package
                 .description
                 .to_owned()
