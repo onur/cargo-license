@@ -2,6 +2,7 @@
 
 [![Build Status](https://secure.travis-ci.org/onur/cargo-license.svg?branch=master)](https://travis-ci.org/onur/cargo-license)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/onur/cargo-license/master/LICENSE)
+![Minimum Supported Rust Version](https://img.shields.io/badge/rustc-1.32-red)
 
 A cargo subcommand to see license of dependencies.
 
