@@ -1,6 +1,4 @@
-
-#[macro_use]
-extern crate serde_derive;
+use serde_derive::Serialize;
 
 pub type Result<T> = std::result::Result<T, failure::Error>;
 

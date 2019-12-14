@@ -1,7 +1,6 @@
 use ansi_term::Colour::Green;
-use std::collections::btree_map::Entry::*;
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
+use std::collections::btree_map::Entry::{Occupied, Vacant};
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::PathBuf;
 use std::process::exit;
