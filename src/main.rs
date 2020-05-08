@@ -140,6 +140,8 @@ struct Opt {
     #[structopt(long = "no-deps")]
     /// Output information only about the root package and don't fetch dependencies.
     no_deps: bool,
+
+    license: Option<String>
 }
 
 fn run() -> cargo_license::Result<()> {
