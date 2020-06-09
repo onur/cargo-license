@@ -4,7 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::PathBuf;
 use std::process::exit;
-use structopt::StructOpt;
+use structopt::{clap, StructOpt};
 
 fn group_by_license_type(
     dependencies: Vec<cargo_license::DependencyDetails>,
@@ -99,11 +99,15 @@ fn write_json(dependencies: &[cargo_license::DependencyDetails]) -> cargo_licens
     Ok(())
 }
 
+#[derive(StructOpt, Debug)]
+#[structopt(bin_name = "cargo")]
+#[structopt(setting(clap::AppSettings::DisableHelpSubcommand))]
+enum CargoOpt {
+    #[structopt(about = "Cargo subcommand to see licenses of dependencies.")]
+    License(Opt),
+}
+
 #[derive(Debug, StructOpt)]
-#[structopt(
-    name = "cargo_license",
-    about = "Cargo subcommand to see licenses of dependencies."
-)]
 struct Opt {
     #[structopt(name = "PATH", long = "manifest-path", parse(from_os_str))]
     /// Path to Cargo.toml.
@@ -143,7 +147,7 @@ struct Opt {
 }
 
 fn run() -> cargo_license::Result<()> {
-    let opt = Opt::from_args();
+    let CargoOpt::License(opt) = CargoOpt::from_args();
     let mut cmd = cargo_metadata::MetadataCommand::new();
 
     if let Some(path) = &opt.manifest_path {
