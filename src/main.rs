@@ -101,7 +101,7 @@ fn write_json(dependencies: &[cargo_license::DependencyDetails]) -> cargo_licens
 
 #[derive(Debug, StructOpt)]
 #[structopt(
-    name = "cargo_license",
+    bin_name = "cargo license",
     about = "Cargo subcommand to see licenses of dependencies."
 )]
 struct Opt {
