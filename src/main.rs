@@ -1,4 +1,6 @@
 use ansi_term::Colour::Green;
+use ansi_term::Style;
+use std::borrow::Cow;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
@@ -9,6 +11,7 @@ use structopt::StructOpt;
 fn group_by_license_type(
     dependencies: Vec<cargo_license::DependencyDetails>,
     display_authors: bool,
+    enable_color: bool,
 ) {
     let mut table: BTreeMap<String, Vec<cargo_license::DependencyDetails>> = BTreeMap::new();
 
@@ -36,16 +39,16 @@ fn group_by_license_type(
                 .collect::<BTreeSet<_>>();
             println!(
                 "{} ({})\n{}\n{} {}",
-                Green.bold().paint(license),
+                colored(&license, &Green.bold(), enable_color),
                 crates.len(),
                 crate_names.join(", "),
-                Green.paint("by"),
+                colored("by", &Green.normal(), enable_color),
                 crate_authors.into_iter().collect::<Vec<_>>().join(", ")
             );
         } else {
             println!(
                 "{} ({}): {}",
-                Green.bold().paint(license),
+                colored(&license, &Green.bold(), enable_color),
                 crates.len(),
                 crate_names.join(", ")
             );
@@ -56,6 +59,7 @@ fn group_by_license_type(
 fn one_license_per_line(
     dependencies: Vec<cargo_license::DependencyDetails>,
     display_authors: bool,
+    enable_color: bool,
 ) {
     for dependency in dependencies {
         let name = dependency.name.clone();
@@ -65,20 +69,28 @@ fn one_license_per_line(
             let authors = dependency.authors.unwrap_or_else(|| "N/A".to_owned());
             println!(
                 "{}: {}, \"{}\", {}, \"{}\"",
-                Green.bold().paint(name),
+                colored(&name, &Green.bold(), enable_color),
                 version,
                 license,
-                Green.paint("by"),
+                colored("by", &Green.normal(), enable_color),
                 authors
             );
         } else {
             println!(
                 "{}: {}, \"{}\",",
-                Green.bold().paint(name),
+                colored(&name, &Green.bold(), enable_color),
                 version,
                 license,
             );
         }
+    }
+}
+
+fn colored<'a, 'b>(s: &'a str, style: &'b Style, enable_color: bool) -> Cow<'a, str> {
+    if enable_color {
+        Cow::Owned(format!("{}", style.paint(s)))
+    } else {
+        Cow::Borrowed(s)
     }
 }
 
@@ -140,6 +152,16 @@ struct Opt {
     #[structopt(long = "no-deps")]
     /// Output information only about the root package and don't fetch dependencies.
     no_deps: bool,
+
+    #[structopt(
+        long = "color",
+        name = "WHEN",
+        possible_value = "auto",
+        possible_value = "always",
+        possible_value = "never"
+    )]
+    /// Coloring
+    color: Option<String>,
 }
 
 fn run() -> cargo_license::Result<()> {
@@ -175,14 +197,25 @@ fn run() -> cargo_license::Result<()> {
 
     let dependencies = cargo_license::get_dependencies_from_cargo_lock(cmd)?;
 
+    let enable_color = if let Some(color) = opt.color {
+        match color.as_ref() {
+            "auto" => atty::is(atty::Stream::Stdout),
+            "always" => true,
+            "never" => false,
+            _ => unreachable!(),
+        }
+    } else {
+        atty::is(atty::Stream::Stdout)
+    };
+
     if opt.tsv {
         write_tsv(&dependencies)?
     } else if opt.json {
         write_json(&dependencies)?
     } else if opt.do_not_bundle {
-        one_license_per_line(dependencies, opt.authors);
+        one_license_per_line(dependencies, opt.authors, enable_color);
     } else {
-        group_by_license_type(dependencies, opt.authors);
+        group_by_license_type(dependencies, opt.authors, enable_color);
     }
     Ok(())
 }
