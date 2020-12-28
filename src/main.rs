@@ -224,7 +224,7 @@ fn main() {
     exit(match run() {
         Ok(_) => 0,
         Err(e) => {
-            for cause in e.iter_chain() {
+            for cause in e.chain() {
                 eprintln!("{}", cause);
             }
             1

@@ -1,6 +1,6 @@
 use serde_derive::Serialize;
 
-pub type Result<T> = std::result::Result<T, failure::Error>;
+pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
 fn normalize(license_string: &str) -> String {
     let mut list: Vec<&str> = license_string
