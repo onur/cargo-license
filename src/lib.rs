@@ -8,7 +8,7 @@ fn normalize(license_string: &str) -> String {
         .flat_map(|e| e.split(" OR "))
         .map(str::trim)
         .collect();
-    list.sort();
+    list.sort_unstable();
     list.dedup();
     list.join(" OR ")
 }
