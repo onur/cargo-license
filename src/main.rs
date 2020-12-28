@@ -101,7 +101,7 @@ fn write_json(dependencies: &[cargo_license::DependencyDetails]) -> cargo_licens
 
 #[derive(Debug, StructOpt)]
 #[structopt(
-    name = "cargo_license",
+    bin_name = "cargo license",
     about = "Cargo subcommand to see licenses of dependencies."
 )]
 struct Opt {
@@ -143,7 +143,18 @@ struct Opt {
 }
 
 fn run() -> cargo_license::Result<()> {
-    let opt = Opt::from_args();
+    use std::env;
+
+    // Drop extra `license` argument when called by `cargo`.
+    let args = env::args().enumerate().filter_map(|(i, x)| {
+        if (i, x.as_str()) != (1, "license") {
+            Some(x)
+        } else {
+            None
+        }
+    });
+
+    let opt = Opt::from_iter(args);
     let mut cmd = cargo_metadata::MetadataCommand::new();
 
     if let Some(path) = &opt.manifest_path {
