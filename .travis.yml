@@ -1,6 +1,0 @@
-language: rust
-script:
-  - rustup component add clippy
-  - cargo build --verbose --all
-  - cargo test --verbose --all
-  - cargo clippy -- -D clippy::all -W clippy::pedantic
