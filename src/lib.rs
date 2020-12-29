@@ -1,4 +1,9 @@
+use anyhow::Context as _;
 use serde_derive::Serialize;
+use std::{
+    collections::{HashMap, HashSet},
+    iter,
+};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
@@ -52,13 +57,71 @@ impl DependencyDetails {
 
 pub fn get_dependencies_from_cargo_lock(
     mut metadata_command: cargo_metadata::MetadataCommand,
+    avoid_dev_deps: bool,
+    avoid_build_deps: bool,
 ) -> Result<Vec<DependencyDetails>> {
     let metadata = metadata_command.exec()?;
 
-    let mut detailed_dependencies: Vec<DependencyDetails> = Vec::new();
-    for package in metadata.packages {
-        detailed_dependencies.push(DependencyDetails::new(&package));
-    }
+    let connected = {
+        let resolve = metadata.resolve.as_ref().expect("missing `resolve`");
+
+        let root = resolve
+            .root
+            .as_ref()
+            .with_context(|| "this is a virtual manifest")?;
+
+        let deps = resolve
+            .nodes
+            .iter()
+            .map(|cargo_metadata::Node { id, deps, .. }| (id, deps))
+            .collect::<HashMap<_, _>>();
+
+        let missing_dep_kinds = deps
+            .values()
+            .flat_map(|d| d.iter())
+            .any(|cargo_metadata::NodeDep { dep_kinds, .. }| dep_kinds.is_empty());
+
+        if missing_dep_kinds && avoid_dev_deps {
+            eprintln!("warning: Cargo 1.41+ is required for `--avoid-dev-deps`");
+        }
+        if missing_dep_kinds && avoid_build_deps {
+            eprintln!("warning: Cargo 1.41+ is required for `--avoid-build-deps`");
+        }
+
+        let neighbors = |package_id: &cargo_metadata::PackageId| {
+            deps[package_id]
+                .iter()
+                .filter(|cargo_metadata::NodeDep { dep_kinds, .. }| {
+                    missing_dep_kinds
+                        || dep_kinds
+                            .iter()
+                            .any(|cargo_metadata::DepKindInfo { kind, .. }| {
+                                *kind == cargo_metadata::DependencyKind::Normal
+                                    || !avoid_dev_deps
+                                        && *kind == cargo_metadata::DependencyKind::Development
+                                    || !avoid_build_deps
+                                        && *kind == cargo_metadata::DependencyKind::Build
+                            })
+                })
+                .map(|cargo_metadata::NodeDep { pkg, .. }| pkg)
+        };
+
+        let mut connected = iter::once(root).collect::<HashSet<_>>();
+        let stack = &mut neighbors(root).collect::<Vec<_>>();
+        while let Some(package_id) = stack.pop() {
+            if connected.insert(package_id) {
+                stack.extend(neighbors(package_id));
+            }
+        }
+        connected
+    };
+
+    let mut detailed_dependencies = metadata
+        .packages
+        .iter()
+        .filter(|p| connected.contains(&p.id))
+        .map(DependencyDetails::new)
+        .collect::<Vec<_>>();
     detailed_dependencies.sort_by(|dep1, dep2| dep1.cmp(dep2));
     Ok(detailed_dependencies)
 }
@@ -70,7 +133,7 @@ mod test {
     #[test]
     fn test_detailed() {
         let cmd = cargo_metadata::MetadataCommand::new();
-        let detailed_dependencies = get_dependencies_from_cargo_lock(cmd).unwrap();
+        let detailed_dependencies = get_dependencies_from_cargo_lock(cmd, false, false).unwrap();
         assert!(!detailed_dependencies.is_empty());
         for detailed_dependency in detailed_dependencies.iter() {
             assert!(
