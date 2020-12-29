@@ -1,6 +1,6 @@
 # cargo-license
 
-[![Build Status](https://secure.travis-ci.org/onur/cargo-license.svg?branch=master)](https://travis-ci.org/onur/cargo-license)
+[![CI](https://github.com/onur/cargo-license/workflows/CI/badge.svg)](https://github.com/onur/cargo-license/actions?workflow=CI)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/onur/cargo-license/master/LICENSE)
 ![Minimum Supported Rust Version](https://img.shields.io/badge/rustc-1.34-red)
 
