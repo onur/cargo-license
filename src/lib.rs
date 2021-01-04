@@ -1,9 +1,5 @@
-use anyhow::Context as _;
 use serde_derive::Serialize;
-use std::{
-    collections::{HashMap, HashSet},
-    iter,
-};
+use std::collections::{HashMap, HashSet};
 
 pub type Result<T> = std::result::Result<T, anyhow::Error>;
 
@@ -65,11 +61,6 @@ pub fn get_dependencies_from_cargo_lock(
     let connected = {
         let resolve = metadata.resolve.as_ref().expect("missing `resolve`");
 
-        let root = resolve
-            .root
-            .as_ref()
-            .with_context(|| "this is a virtual manifest")?;
-
         let deps = resolve
             .nodes
             .iter()
@@ -106,8 +97,12 @@ pub fn get_dependencies_from_cargo_lock(
                 .map(|cargo_metadata::NodeDep { pkg, .. }| pkg)
         };
 
-        let mut connected = iter::once(root).collect::<HashSet<_>>();
-        let stack = &mut neighbors(root).collect::<Vec<_>>();
+        let mut connected = HashSet::new();
+        let stack = &mut if let Some(root) = &resolve.root {
+            vec![root]
+        } else {
+            metadata.workspace_members.iter().collect()
+        };
         while let Some(package_id) = stack.pop() {
             if connected.insert(package_id) {
                 stack.extend(neighbors(package_id));
