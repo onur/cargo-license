@@ -59,7 +59,7 @@ pub fn get_dependencies_from_cargo_lock(
     for package in metadata.packages {
         detailed_dependencies.push(DependencyDetails::new(&package));
     }
-    detailed_dependencies.sort_by(|dep1, dep2| dep1.cmp(dep2));
+    detailed_dependencies.sort_unstable();
     Ok(detailed_dependencies)
 }
 
