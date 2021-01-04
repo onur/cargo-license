@@ -117,7 +117,7 @@ pub fn get_dependencies_from_cargo_lock(
         .filter(|p| connected.contains(&p.id))
         .map(DependencyDetails::new)
         .collect::<Vec<_>>();
-    detailed_dependencies.sort_by(|dep1, dep2| dep1.cmp(dep2));
+    detailed_dependencies.sort_unstable();
     Ok(detailed_dependencies)
 }
 

@@ -117,11 +117,11 @@ fn write_json(dependencies: &[cargo_license::DependencyDetails]) -> cargo_licens
     about = "Cargo subcommand to see licenses of dependencies."
 )]
 struct Opt {
-    #[structopt(name = "PATH", long = "manifest-path", parse(from_os_str))]
+    #[structopt(name = "PATH", long)]
     /// Path to Cargo.toml.
     manifest_path: Option<PathBuf>,
 
-    #[structopt(name = "CURRENT_DIR", long = "current-dir", parse(from_os_str))]
+    #[structopt(name = "CURRENT_DIR", long)]
     /// Current directory of the cargo metadata process.
     current_dir: Option<PathBuf>,
 
