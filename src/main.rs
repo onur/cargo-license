@@ -117,11 +117,11 @@ fn write_json(dependencies: &[cargo_license::DependencyDetails]) -> cargo_licens
     about = "Cargo subcommand to see licenses of dependencies."
 )]
 struct Opt {
-    #[structopt(name = "PATH", long)]
+    #[structopt(value_name = "PATH", long)]
     /// Path to Cargo.toml.
     manifest_path: Option<PathBuf>,
 
-    #[structopt(name = "CURRENT_DIR", long)]
+    #[structopt(value_name = "CURRENT_DIR", long)]
     /// Current directory of the cargo metadata process.
     current_dir: Option<PathBuf>,
 
@@ -149,7 +149,7 @@ struct Opt {
     /// Exclude build dependencies
     avoid_build_deps: bool,
 
-    #[structopt(long = "features", name = "FEATURE")]
+    #[structopt(long = "features", value_name = "FEATURE")]
     /// Space-separated list of features to activate.
     features: Option<Vec<String>>,
 
