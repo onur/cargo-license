@@ -141,6 +141,14 @@ struct Opt {
     /// Detailed output as JSON.
     json: bool,
 
+    #[structopt(long)]
+    /// Exclude development dependencies
+    avoid_dev_deps: bool,
+
+    #[structopt(long)]
+    /// Exclude build dependencies
+    avoid_build_deps: bool,
+
     #[structopt(long = "features", value_name = "FEATURE")]
     /// Space-separated list of features to activate.
     features: Option<Vec<String>>,
@@ -195,7 +203,11 @@ fn run() -> cargo_license::Result<()> {
         cmd.features(cargo_metadata::CargoOpt::SomeFeatures(features));
     }
 
-    let dependencies = cargo_license::get_dependencies_from_cargo_lock(cmd)?;
+    let dependencies = cargo_license::get_dependencies_from_cargo_lock(
+        cmd,
+        opt.avoid_dev_deps,
+        opt.avoid_build_deps,
+    )?;
 
     let enable_color = if let Some(color) = opt.color {
         match color.as_ref() {
