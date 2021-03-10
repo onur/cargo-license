@@ -161,6 +161,10 @@ struct Opt {
     /// Output information only about the root package and don't fetch dependencies.
     no_deps: bool,
 
+    #[structopt(long = "filter-platform", value_name = "TRIPLE")]
+    /// Only include resolve dependencies matching the given target-triple.
+    filter_platform: Option<String>,
+
     #[structopt(
         long = "color",
         name = "WHEN",
@@ -201,6 +205,9 @@ fn run() -> cargo_license::Result<()> {
     }
     if let Some(features) = opt.features {
         cmd.features(cargo_metadata::CargoOpt::SomeFeatures(features));
+    }
+    if let Some(triple) = opt.filter_platform {
+        cmd.other_options(&["--filter-platform".into(), triple]);
     }
 
     let dependencies = cargo_license::get_dependencies_from_cargo_lock(
