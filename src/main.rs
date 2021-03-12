@@ -1,3 +1,6 @@
+#![deny(clippy::all)]
+#![warn(clippy::pedantic)]
+
 use ansi_term::Colour::Green;
 use ansi_term::Style;
 use std::borrow::Cow;
@@ -112,6 +115,7 @@ fn write_json(dependencies: &[cargo_license::DependencyDetails]) -> cargo_licens
 }
 
 #[derive(Debug, StructOpt)]
+#[allow(clippy::clippy::struct_excessive_bools)]
 #[structopt(
     bin_name = "cargo license",
     about = "Cargo subcommand to see licenses of dependencies."
@@ -181,10 +185,10 @@ fn run() -> cargo_license::Result<()> {
 
     // Drop extra `license` argument when called by `cargo`.
     let args = env::args().enumerate().filter_map(|(i, x)| {
-        if (i, x.as_str()) != (1, "license") {
-            Some(x)
-        } else {
+        if (i, x.as_str()) == (1, "license") {
             None
+        } else {
+            Some(x)
         }
     });
 
