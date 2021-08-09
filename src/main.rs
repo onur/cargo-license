@@ -211,7 +211,7 @@ fn run() -> cargo_license::Result<()> {
         cmd.features(cargo_metadata::CargoOpt::SomeFeatures(features));
     }
     if let Some(triple) = opt.filter_platform {
-        cmd.other_options(&["--filter-platform".into(), triple]);
+        cmd.other_options(["--filter-platform".into(), triple]);
     }
 
     let dependencies = cargo_license::get_dependencies_from_cargo_lock(
