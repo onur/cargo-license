@@ -115,7 +115,7 @@ fn write_json(dependencies: &[cargo_license::DependencyDetails]) -> cargo_licens
 }
 
 #[derive(Debug, StructOpt)]
-#[allow(clippy::clippy::struct_excessive_bools)]
+#[allow(clippy::struct_excessive_bools)]
 #[structopt(
     bin_name = "cargo license",
     about = "Cargo subcommand to see licenses of dependencies."
@@ -211,7 +211,7 @@ fn run() -> cargo_license::Result<()> {
         cmd.features(cargo_metadata::CargoOpt::SomeFeatures(features));
     }
     if let Some(triple) = opt.filter_platform {
-        cmd.other_options(&["--filter-platform".into(), triple]);
+        cmd.other_options(["--filter-platform".into(), triple]);
     }
 
     let dependencies = cargo_license::get_dependencies_from_cargo_lock(
@@ -232,9 +232,9 @@ fn run() -> cargo_license::Result<()> {
     };
 
     if opt.tsv {
-        write_tsv(&dependencies)?
+        write_tsv(&dependencies)?;
     } else if opt.json {
-        write_json(&dependencies)?
+        write_json(&dependencies)?;
     } else if opt.do_not_bundle {
         one_license_per_line(dependencies, opt.authors, enable_color);
     } else {
