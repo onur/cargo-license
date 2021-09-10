@@ -38,11 +38,8 @@ impl DependencyDetails {
             version: package.version.to_owned(),
             authors,
             repository: package.repository.to_owned(),
-            license: package.license.as_ref().map(|s| normalize(&s)),
-            license_file: package
-                .license_file
-                .to_owned()
-                .and_then(|f| f.to_str().map(std::borrow::ToOwned::to_owned)),
+            license: package.license.as_ref().map(|s| normalize(s)),
+            license_file: package.license_file.to_owned().map(|f| f.into_string()),
             description: package
                 .description
                 .to_owned()
@@ -52,7 +49,7 @@ impl DependencyDetails {
 }
 
 pub fn get_dependencies_from_cargo_lock(
-    mut metadata_command: cargo_metadata::MetadataCommand,
+    metadata_command: cargo_metadata::MetadataCommand,
     avoid_dev_deps: bool,
     avoid_build_deps: bool,
 ) -> Result<Vec<DependencyDetails>> {
