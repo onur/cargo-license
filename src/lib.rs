@@ -43,7 +43,7 @@ impl DependencyDetails {
             description: package
                 .description
                 .to_owned()
-                .map(|s| s.trim().replace("\n", " ")),
+                .map(|s| s.trim().replace('\n', " ")),
         }
     }
 }

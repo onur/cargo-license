@@ -3,13 +3,13 @@
 
 use ansi_term::Colour::Green;
 use ansi_term::Style;
+use clap::Parser;
 use std::borrow::Cow;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::path::PathBuf;
 use std::process::exit;
-use structopt::StructOpt;
 
 fn group_by_license_type(
     dependencies: Vec<cargo_license::DependencyDetails>,
@@ -114,62 +114,62 @@ fn write_json(dependencies: &[cargo_license::DependencyDetails]) -> cargo_licens
     Ok(())
 }
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Parser)]
 #[allow(clippy::struct_excessive_bools)]
-#[structopt(
+#[clap(
     bin_name = "cargo license",
     about = "Cargo subcommand to see licenses of dependencies."
 )]
 struct Opt {
-    #[structopt(value_name = "PATH", long)]
+    #[clap(value_name = "PATH", long)]
     /// Path to Cargo.toml.
     manifest_path: Option<PathBuf>,
 
-    #[structopt(value_name = "CURRENT_DIR", long)]
+    #[clap(value_name = "CURRENT_DIR", long)]
     /// Current directory of the cargo metadata process.
     current_dir: Option<PathBuf>,
 
-    #[structopt(short, long)]
+    #[clap(short, long)]
     /// Display crate authors
     authors: bool,
 
-    #[structopt(short, long)]
+    #[clap(short, long)]
     /// Output one license per line.
     do_not_bundle: bool,
 
-    #[structopt(short, long)]
+    #[clap(short, long)]
     /// Detailed output as tab-separated-values.
     tsv: bool,
 
-    #[structopt(short, long)]
+    #[clap(short, long)]
     /// Detailed output as JSON.
     json: bool,
 
-    #[structopt(long)]
+    #[clap(long)]
     /// Exclude development dependencies
     avoid_dev_deps: bool,
 
-    #[structopt(long)]
+    #[clap(long)]
     /// Exclude build dependencies
     avoid_build_deps: bool,
 
-    #[structopt(long = "features", value_name = "FEATURE")]
+    #[clap(long = "features", value_name = "FEATURE")]
     /// Space-separated list of features to activate.
     features: Option<Vec<String>>,
 
-    #[structopt(long = "all-features")]
+    #[clap(long = "all-features")]
     /// Activate all available features.
     all_features: bool,
 
-    #[structopt(long = "no-deps")]
+    #[clap(long = "no-deps")]
     /// Output information only about the root package and don't fetch dependencies.
     no_deps: bool,
 
-    #[structopt(long = "filter-platform", value_name = "TRIPLE")]
+    #[clap(long = "filter-platform", value_name = "TRIPLE")]
     /// Only include resolve dependencies matching the given target-triple.
     filter_platform: Option<String>,
 
-    #[structopt(
+    #[clap(
         long = "color",
         name = "WHEN",
         possible_value = "auto",
@@ -192,7 +192,7 @@ fn run() -> cargo_license::Result<()> {
         }
     });
 
-    let opt = Opt::from_iter(args);
+    let opt = Opt::parse_from(args);
     let mut cmd = cargo_metadata::MetadataCommand::new();
 
     if let Some(path) = &opt.manifest_path {
