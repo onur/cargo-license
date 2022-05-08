@@ -4,7 +4,9 @@
 use ansi_term::Colour::Green;
 use ansi_term::Style;
 use anyhow::Result;
-use cargo_license::{get_dependencies_from_cargo_lock, write_json, write_tsv, DependencyDetails};
+use cargo_license::{
+    get_dependencies_from_cargo_lock, write_json, write_tsv, DependencyDetails, GetDependenciesOpt,
+};
 use cargo_metadata::{CargoOpt, MetadataCommand};
 use clap::Parser;
 use std::borrow::Cow;
@@ -150,9 +152,9 @@ struct Opt {
     /// Deactivate default features
     no_default_features: bool,
 
-    #[clap(long = "no-deps")]
+    #[clap(long = "direct-deps-only")]
     /// Output information only about the root package and don't fetch dependencies.
-    no_deps: bool,
+    direct_deps_only: bool,
 
     #[clap(long = "filter-platform", value_name = "TRIPLE")]
     /// Only include resolve dependencies matching the given target-triple.
@@ -203,8 +205,13 @@ fn run() -> Result<()> {
         cmd.other_options(["--filter-platform".into(), triple]);
     }
 
-    let dependencies =
-        get_dependencies_from_cargo_lock(cmd, opt.avoid_dev_deps, opt.avoid_build_deps)?;
+    let get_opts = GetDependenciesOpt {
+        avoid_dev_deps: opt.avoid_dev_deps,
+        avoid_build_deps: opt.avoid_build_deps,
+        direct_deps_only: opt.direct_deps_only,
+    };
+
+    let dependencies = get_dependencies_from_cargo_lock(cmd, get_opts)?;
 
     let enable_color = if let Some(color) = opt.color {
         match color.as_ref() {

@@ -1,6 +1,6 @@
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use cargo_metadata::{
-    DepKindInfo, DependencyKind, MetadataCommand, Node, NodeDep, Package, PackageId,
+    DepKindInfo, DependencyKind, Metadata, MetadataCommand, Node, NodeDep, Package, PackageId,
 };
 use serde_derive::Serialize;
 use std::collections::{HashMap, HashSet};
@@ -15,6 +15,23 @@ fn normalize(license_string: &str) -> String {
     list.sort_unstable();
     list.dedup();
     list.join(" OR ")
+}
+
+fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> Result<HashSet<String>> {
+    let mut filter = HashSet::new();
+
+    let root = metadata
+        .root_package()
+        .ok_or_else(|| anyhow!("No root package"))?;
+
+    if opt.direct_deps_only {
+        filter.insert(root.name.clone());
+
+        for package in root.dependencies.iter() {
+            filter.insert(package.name.clone());
+        }
+    }
+    Ok(filter)
 }
 
 #[derive(Debug, Serialize, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
@@ -51,12 +68,20 @@ impl DependencyDetails {
     }
 }
 
+#[derive(Default)]
+pub struct GetDependenciesOpt {
+    pub avoid_dev_deps: bool,
+    pub avoid_build_deps: bool,
+    pub direct_deps_only: bool,
+}
+
 pub fn get_dependencies_from_cargo_lock(
     metadata_command: MetadataCommand,
-    avoid_dev_deps: bool,
-    avoid_build_deps: bool,
+    opt: GetDependenciesOpt,
 ) -> Result<Vec<DependencyDetails>> {
     let metadata = metadata_command.exec()?;
+
+    let filter = get_node_name_filter(&metadata, &opt)?;
 
     let connected = {
         let resolve = metadata.resolve.as_ref().expect("missing `resolve`");
@@ -72,10 +97,10 @@ pub fn get_dependencies_from_cargo_lock(
             .flat_map(|d| d.iter())
             .any(|NodeDep { dep_kinds, .. }| dep_kinds.is_empty());
 
-        if missing_dep_kinds && avoid_dev_deps {
+        if missing_dep_kinds && opt.avoid_dev_deps {
             eprintln!("warning: Cargo 1.41+ is required for `--avoid-dev-deps`");
         }
-        if missing_dep_kinds && avoid_build_deps {
+        if missing_dep_kinds && opt.avoid_build_deps {
             eprintln!("warning: Cargo 1.41+ is required for `--avoid-build-deps`");
         }
 
@@ -86,8 +111,8 @@ pub fn get_dependencies_from_cargo_lock(
                     missing_dep_kinds
                         || dep_kinds.iter().any(|DepKindInfo { kind, .. }| {
                             *kind == DependencyKind::Normal
-                                || !avoid_dev_deps && *kind == DependencyKind::Development
-                                || !avoid_build_deps && *kind == DependencyKind::Build
+                                || !opt.avoid_dev_deps && *kind == DependencyKind::Development
+                                || !opt.avoid_build_deps && *kind == DependencyKind::Build
                         })
                 })
                 .map(|NodeDep { pkg, .. }| pkg)
@@ -111,6 +136,7 @@ pub fn get_dependencies_from_cargo_lock(
         .packages
         .iter()
         .filter(|p| connected.contains(&p.id))
+        .filter(|p| filter.is_empty() || filter.contains(&p.name))
         .map(DependencyDetails::new)
         .collect::<Vec<_>>();
     detailed_dependencies.sort_unstable();
@@ -141,7 +167,8 @@ mod test {
     #[test]
     fn test_detailed() {
         let cmd = MetadataCommand::new();
-        let detailed_dependencies = get_dependencies_from_cargo_lock(cmd, false, false).unwrap();
+        let detailed_dependencies =
+            get_dependencies_from_cargo_lock(cmd, GetDependenciesOpt::default()).unwrap();
         assert!(!detailed_dependencies.is_empty());
         for detailed_dependency in detailed_dependencies.iter() {
             assert!(

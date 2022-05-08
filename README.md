@@ -23,11 +23,11 @@ FLAGS:
     -a, --authors             Display crate authors
         --avoid-build-deps    Exclude build dependencies
         --avoid-dev-deps      Exclude development dependencies
+        --direct-deps-only    Output information only about the root package and it's direct dependencies
     -d, --do-not-bundle       Output one license per line
     -h, --help                Prints help information
     -j, --json                Detailed output as JSON
         --no-default-features Deactivate default features
-        --no-deps             Output information only about the root package and don't fetch dependencies
     -t, --tsv                 Detailed output as tab-separated-values
     -V, --version             Prints version information
 
