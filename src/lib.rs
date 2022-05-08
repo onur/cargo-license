@@ -24,9 +24,13 @@ fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> Result
         .root_package()
         .ok_or_else(|| anyhow!("No root package"))?;
 
+    if opt.root_only {
+        filter.insert(root.name.clone());
+        return Ok(filter);
+    }
+
     if opt.direct_deps_only {
         filter.insert(root.name.clone());
-
         for package in root.dependencies.iter() {
             filter.insert(package.name.clone());
         }
@@ -73,6 +77,7 @@ pub struct GetDependenciesOpt {
     pub avoid_dev_deps: bool,
     pub avoid_build_deps: bool,
     pub direct_deps_only: bool,
+    pub root_only: bool,
 }
 
 pub fn get_dependencies_from_cargo_lock(

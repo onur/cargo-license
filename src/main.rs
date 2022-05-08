@@ -156,6 +156,10 @@ struct Opt {
     /// Output information only about the root package and don't fetch dependencies.
     direct_deps_only: bool,
 
+    #[clap(long = "root-only")]
+    /// Output information only about the root package.
+    root_only: bool,
+
     #[clap(long = "filter-platform", value_name = "TRIPLE")]
     /// Only include resolve dependencies matching the given target-triple.
     filter_platform: Option<String>,
@@ -209,6 +213,7 @@ fn run() -> Result<()> {
         avoid_dev_deps: opt.avoid_dev_deps,
         avoid_build_deps: opt.avoid_build_deps,
         direct_deps_only: opt.direct_deps_only,
+        root_only: opt.root_only,
     };
 
     let dependencies = get_dependencies_from_cargo_lock(cmd, get_opts)?;

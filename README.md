@@ -28,6 +28,7 @@ FLAGS:
     -h, --help                Prints help information
     -j, --json                Detailed output as JSON
         --no-default-features Deactivate default features
+        --root-only           Output information only about the root package
     -t, --tsv                 Detailed output as tab-separated-values
     -V, --version             Prints version information
 
