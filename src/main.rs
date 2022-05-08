@@ -146,6 +146,10 @@ struct Opt {
     /// Activate all available features.
     all_features: bool,
 
+    #[clap(long = "no-default-features")]
+    /// Deactivate default features
+    no_default_features: bool,
+
     #[clap(long = "no-deps")]
     /// Output information only about the root package and don't fetch dependencies.
     no_deps: bool,
@@ -189,7 +193,7 @@ fn run() -> Result<()> {
     if opt.all_features {
         cmd.features(CargoOpt::AllFeatures);
     }
-    if opt.no_deps {
+    if opt.no_default_features {
         cmd.features(CargoOpt::NoDefaultFeatures);
     }
     if let Some(features) = opt.features {
