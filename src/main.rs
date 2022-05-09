@@ -19,10 +19,14 @@ fn group_by_license_type(
     let mut table: BTreeMap<String, Vec<cargo_license::DependencyDetails>> = BTreeMap::new();
 
     for dependency in dependencies {
-        let license = dependency
-            .license
-            .clone()
-            .unwrap_or_else(|| "N/A".to_owned());
+        let license_file = dependency.license_file.as_ref();
+        let license = dependency.license.clone().unwrap_or_else(move || {
+            if license_file.is_some() {
+                "Custom License File".to_owned()
+            } else {
+                "N/A".to_owned()
+            }
+        });
         match table.entry(license) {
             Vacant(e) => {
                 e.insert(vec![dependency]);
@@ -67,7 +71,14 @@ fn one_license_per_line(
     for dependency in dependencies {
         let name = dependency.name.clone();
         let version = dependency.version.clone();
-        let license = dependency.license.unwrap_or_else(|| "N/A".to_owned());
+        let license_file = dependency.license_file.as_ref();
+        let license = dependency.license.unwrap_or_else(move || {
+            if license_file.is_some() {
+                "Custom License File".to_owned()
+            } else {
+                "N/A".to_owned()
+            }
+        });
         if display_authors {
             let authors = dependency.authors.unwrap_or_else(|| "N/A".to_owned());
             println!(
