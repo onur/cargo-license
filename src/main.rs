@@ -97,9 +97,9 @@ fn colored<'a, 'b>(s: &'a str, style: &'b Style, enable_color: bool) -> Cow<'a, 
     }
 }
 
-fn write_tsv(dependencies: &[cargo_license::DependencyDetails]) -> cargo_license::Result<()> {
+fn write_xsv(dependencies: &[cargo_license::DependencyDetails],delimiter: u8 ) -> cargo_license::Result<()> {
     let mut wtr = csv::WriterBuilder::new()
-        .delimiter(b'\t')
+        .delimiter(delimiter)
         .quote_style(csv::QuoteStyle::Necessary)
         .from_writer(io::stdout());
     for dependency in dependencies {
@@ -140,6 +140,10 @@ struct Opt {
     #[clap(short, long)]
     /// Detailed output as tab-separated-values.
     tsv: bool,
+
+    #[clap(short, long)]
+    /// Detailed output as comma-separated-values.
+    csv: bool,
 
     #[clap(short, long)]
     /// Detailed output as JSON.
@@ -232,7 +236,9 @@ fn run() -> cargo_license::Result<()> {
     };
 
     if opt.tsv {
-        write_tsv(&dependencies)?;
+        write_xsv(&dependencies,b'\t')?;
+    }else if opt.csv{
+        write_xsv(&dependencies,b',')?;
     } else if opt.json {
         write_json(&dependencies)?;
     } else if opt.do_not_bundle {
