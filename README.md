@@ -28,6 +28,7 @@ FLAGS:
     -j, --json                Detailed output as JSON
         --no-deps             Output information only about the root package and don't fetch dependencies
     -t, --tsv                 Detailed output as tab-separated-values
+    -c, --csv                 Detailed output as comma-separated-values
     -V, --version             Prints version information
 
 OPTIONS:
