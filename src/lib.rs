@@ -1,7 +1,10 @@
+use anyhow::{anyhow, Result};
+use cargo_metadata::{
+    DepKindInfo, DependencyKind, Metadata, MetadataCommand, Node, NodeDep, Package, PackageId,
+};
 use serde_derive::Serialize;
 use std::collections::{HashMap, HashSet};
-
-pub type Result<T> = std::result::Result<T, anyhow::Error>;
+use std::io;
 
 fn normalize(license_string: &str) -> String {
     let mut list: Vec<&str> = license_string
@@ -12,6 +15,27 @@ fn normalize(license_string: &str) -> String {
     list.sort_unstable();
     list.dedup();
     list.join(" OR ")
+}
+
+fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> Result<HashSet<String>> {
+    let mut filter = HashSet::new();
+
+    let root = metadata
+        .root_package()
+        .ok_or_else(|| anyhow!("No root package"))?;
+
+    if opt.root_only {
+        filter.insert(root.name.clone());
+        return Ok(filter);
+    }
+
+    if opt.direct_deps_only {
+        filter.insert(root.name.clone());
+        for package in root.dependencies.iter() {
+            filter.insert(package.name.clone());
+        }
+    }
+    Ok(filter)
 }
 
 #[derive(Debug, Serialize, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
@@ -27,7 +51,7 @@ pub struct DependencyDetails {
 
 impl DependencyDetails {
     #[must_use]
-    pub fn new(package: &cargo_metadata::Package) -> Self {
+    pub fn new(package: &Package) -> Self {
         let authors = if package.authors.is_empty() {
             None
         } else {
@@ -48,12 +72,21 @@ impl DependencyDetails {
     }
 }
 
+#[derive(Default)]
+pub struct GetDependenciesOpt {
+    pub avoid_dev_deps: bool,
+    pub avoid_build_deps: bool,
+    pub direct_deps_only: bool,
+    pub root_only: bool,
+}
+
 pub fn get_dependencies_from_cargo_lock(
-    metadata_command: cargo_metadata::MetadataCommand,
-    avoid_dev_deps: bool,
-    avoid_build_deps: bool,
+    metadata_command: MetadataCommand,
+    opt: GetDependenciesOpt,
 ) -> Result<Vec<DependencyDetails>> {
     let metadata = metadata_command.exec()?;
+
+    let filter = get_node_name_filter(&metadata, &opt)?;
 
     let connected = {
         let resolve = metadata.resolve.as_ref().expect("missing `resolve`");
@@ -61,37 +94,33 @@ pub fn get_dependencies_from_cargo_lock(
         let deps = resolve
             .nodes
             .iter()
-            .map(|cargo_metadata::Node { id, deps, .. }| (id, deps))
+            .map(|Node { id, deps, .. }| (id, deps))
             .collect::<HashMap<_, _>>();
 
         let missing_dep_kinds = deps
             .values()
             .flat_map(|d| d.iter())
-            .any(|cargo_metadata::NodeDep { dep_kinds, .. }| dep_kinds.is_empty());
+            .any(|NodeDep { dep_kinds, .. }| dep_kinds.is_empty());
 
-        if missing_dep_kinds && avoid_dev_deps {
+        if missing_dep_kinds && opt.avoid_dev_deps {
             eprintln!("warning: Cargo 1.41+ is required for `--avoid-dev-deps`");
         }
-        if missing_dep_kinds && avoid_build_deps {
+        if missing_dep_kinds && opt.avoid_build_deps {
             eprintln!("warning: Cargo 1.41+ is required for `--avoid-build-deps`");
         }
 
-        let neighbors = |package_id: &cargo_metadata::PackageId| {
+        let neighbors = |package_id: &PackageId| {
             deps[package_id]
                 .iter()
-                .filter(|cargo_metadata::NodeDep { dep_kinds, .. }| {
+                .filter(|NodeDep { dep_kinds, .. }| {
                     missing_dep_kinds
-                        || dep_kinds
-                            .iter()
-                            .any(|cargo_metadata::DepKindInfo { kind, .. }| {
-                                *kind == cargo_metadata::DependencyKind::Normal
-                                    || !avoid_dev_deps
-                                        && *kind == cargo_metadata::DependencyKind::Development
-                                    || !avoid_build_deps
-                                        && *kind == cargo_metadata::DependencyKind::Build
-                            })
+                        || dep_kinds.iter().any(|DepKindInfo { kind, .. }| {
+                            *kind == DependencyKind::Normal
+                                || !opt.avoid_dev_deps && *kind == DependencyKind::Development
+                                || !opt.avoid_build_deps && *kind == DependencyKind::Build
+                        })
                 })
-                .map(|cargo_metadata::NodeDep { pkg, .. }| pkg)
+                .map(|NodeDep { pkg, .. }| pkg)
         };
 
         let mut connected = HashSet::new();
@@ -112,10 +141,28 @@ pub fn get_dependencies_from_cargo_lock(
         .packages
         .iter()
         .filter(|p| connected.contains(&p.id))
+        .filter(|p| filter.is_empty() || filter.contains(&p.name))
         .map(DependencyDetails::new)
         .collect::<Vec<_>>();
     detailed_dependencies.sort_unstable();
     Ok(detailed_dependencies)
+}
+
+pub fn write_tsv(dependencies: &[DependencyDetails]) -> Result<()> {
+    let mut wtr = csv::WriterBuilder::new()
+        .delimiter(b'\t')
+        .quote_style(csv::QuoteStyle::Necessary)
+        .from_writer(io::stdout());
+    for dependency in dependencies {
+        wtr.serialize(dependency)?;
+    }
+    wtr.flush()?;
+    Ok(())
+}
+
+pub fn write_json(dependencies: &[DependencyDetails]) -> Result<()> {
+    println!("{}", serde_json::to_string_pretty(&dependencies)?);
+    Ok(())
 }
 
 #[cfg(test)]
@@ -124,8 +171,9 @@ mod test {
 
     #[test]
     fn test_detailed() {
-        let cmd = cargo_metadata::MetadataCommand::new();
-        let detailed_dependencies = get_dependencies_from_cargo_lock(cmd, false, false).unwrap();
+        let cmd = MetadataCommand::new();
+        let detailed_dependencies =
+            get_dependencies_from_cargo_lock(cmd, GetDependenciesOpt::default()).unwrap();
         assert!(!detailed_dependencies.is_empty());
         for detailed_dependency in detailed_dependencies.iter() {
             assert!(
