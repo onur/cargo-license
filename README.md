@@ -12,32 +12,31 @@ You can install cargo-license with: `cargo install cargo-license` and
 run it in your project directory with: `cargo license` or `cargo-license`.
 
 ```
-cargo-license 0.4.0
+cargo-license 0.5.0
 Cargo subcommand to see licenses of dependencies.
 
 USAGE:
-    cargo license [FLAGS] [OPTIONS]
-
-FLAGS:
-        --all-features        Activate all available features
-    -a, --authors             Display crate authors
-        --avoid-build-deps    Exclude build dependencies
-        --avoid-dev-deps      Exclude development dependencies
-        --direct-deps-only    Output information only about the root package and it's direct dependencies
-    -d, --do-not-bundle       Output one license per line
-    -h, --help                Prints help information
-    -j, --json                Detailed output as JSON
-        --no-default-features Deactivate default features
-        --root-only           Output information only about the root package
-    -t, --tsv                 Detailed output as tab-separated-values
-    -V, --version             Prints version information
+    cargo license [OPTIONS]
 
 OPTIONS:
+    -a, --authors                      Display crate authors
+        --all-features                 Activate all available features
+        --avoid-build-deps             Exclude build dependencies
+        --avoid-dev-deps               Exclude development dependencies
         --color <WHEN>                 Coloring [possible values: auto, always, never]
         --current-dir <CURRENT_DIR>    Current directory of the cargo metadata process
-        --features <FEATURE>...        Space-separated list of features to activate
-        --filter-platform <TRIPLE>     Only include resolve dependencies matching the given target-triple
+    -d, --do-not-bundle                Output one license per line
+        --direct-deps-only             Output information only about the root package and don't
+                                       fetch dependencies
+        --features <FEATURE>           Space-separated list of features to activate
+        --filter-platform <TRIPLE>     Only include resolve dependencies matching the given
+                                       target-triple
+    -h, --help                         Print help information
+    -j, --json                         Detailed output as JSON
         --manifest-path <PATH>         Path to Cargo.toml
+        --no-default-features          Deactivate default features
+        --root-only                    Output information only about the root package
+    -t, --tsv                          Detailed output as tab-separated-values
 ```
 
 ## Example
