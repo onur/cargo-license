@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use cargo_metadata::{
     DepKindInfo, DependencyKind, Metadata, MetadataCommand, Node, NodeDep, Package, PackageId,
 };
@@ -20,19 +20,25 @@ fn normalize(license_string: &str) -> String {
 fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> Result<HashSet<String>> {
     let mut filter = HashSet::new();
 
-    let root = metadata
-        .root_package()
-        .ok_or_else(|| anyhow!("No root package"))?;
+    let roots = if let Some(root) = metadata.root_package() {
+        vec![root]
+    } else {
+        metadata.workspace_packages()
+    };
 
     if opt.root_only {
-        filter.insert(root.name.clone());
+        for root in roots {
+            filter.insert(root.name.clone());
+        }
         return Ok(filter);
     }
 
     if opt.direct_deps_only {
-        filter.insert(root.name.clone());
-        for package in root.dependencies.iter() {
-            filter.insert(package.name.clone());
+        for root in roots {
+            filter.insert(root.name.clone());
+            for package in root.dependencies.iter() {
+                filter.insert(package.name.clone());
+            }
         }
     }
     Ok(filter)
