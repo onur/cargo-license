@@ -21,3 +21,5 @@ semver = "1.0"
 clap = { version =  "3.1.17", features = ["derive"] }
 atty = "0.2"
 anyhow = "1"
+spdx = "0.10.0"
+itertools = "0.10.5"

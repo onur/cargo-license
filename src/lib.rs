@@ -2,6 +2,8 @@ use anyhow::Result;
 use cargo_metadata::{
     DepKindInfo, DependencyKind, Metadata, MetadataCommand, Node, NodeDep, Package, PackageId,
 };
+use itertools::Itertools;
+use semver::Version;
 use serde_derive::Serialize;
 use std::collections::{HashMap, HashSet};
 use std::io;
@@ -75,6 +77,75 @@ impl DependencyDetails {
                 .to_owned()
                 .map(|s| s.trim().replace('\n', " ")),
         }
+    }
+}
+
+#[derive(Debug, Serialize, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+struct GitlabDependency {
+    name: String,
+    version: Version,
+    package_manager: &'static str,
+    path: String,
+    licenses: Vec<&'static str>,
+}
+
+#[derive(Debug, Serialize, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+struct GitlabLicense {
+    id: &'static str,
+    name: &'static str,
+    url: String,
+}
+
+impl GitlabLicense {
+    fn parse_licenses(dependency: &DependencyDetails) -> Result<HashSet<Self>> {
+        let Some(license) = &dependency.license else {return Ok(HashSet::new())};
+        let expression = spdx::Expression::parse_mode(license, spdx::ParseMode::LAX)?;
+        Ok(expression
+            .requirements()
+            .flat_map(|req| {
+                req.req.license.id().map(|license| Self {
+                    id: license.name,
+                    name: license.full_name,
+                    url: Default::default(),
+                })
+            })
+            .collect())
+    }
+}
+
+#[derive(Debug, Serialize, Clone)]
+struct GitlabLicenseScanningReport {
+    version: &'static str,
+    licenses: HashSet<GitlabLicense>,
+    dependencies: Vec<GitlabDependency>,
+}
+
+impl TryFrom<&[DependencyDetails]> for GitlabLicenseScanningReport {
+    type Error = anyhow::Error;
+    fn try_from(dependencies: &[DependencyDetails]) -> Result<Self> {
+        let mut licenses = HashSet::new();
+        let dependencies = dependencies
+            .iter()
+            .cloned()
+            .map(|dependency| {
+                let dep_licenses = GitlabLicense::parse_licenses(&dependency)?;
+                let license_ids = dep_licenses.iter().map(|license| license.id).collect();
+                licenses.extend(dep_licenses);
+                Ok::<_, Self::Error>(GitlabDependency {
+                    name: dependency.name,
+                    version: dependency.version,
+                    package_manager: "cargo",
+                    path: Default::default(),
+                    licenses: license_ids,
+                })
+            })
+            .try_collect()?;
+
+        Ok(GitlabLicenseScanningReport {
+            version: "2.1",
+            dependencies,
+            licenses,
+        })
     }
 }
 
@@ -168,6 +239,13 @@ pub fn write_tsv(dependencies: &[DependencyDetails]) -> Result<()> {
 
 pub fn write_json(dependencies: &[DependencyDetails]) -> Result<()> {
     println!("{}", serde_json::to_string_pretty(&dependencies)?);
+    Ok(())
+}
+
+pub fn write_gitlab(dependencies: &[DependencyDetails]) -> Result<()> {
+    let dependencies = GitlabLicenseScanningReport::try_from(dependencies)?;
+    println!("{}", serde_json::to_string_pretty(&dependencies)?);
+
     Ok(())
 }
 

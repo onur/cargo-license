@@ -32,6 +32,7 @@ OPTIONS:
         --filter-platform <TRIPLE>     Only include resolve dependencies matching the given
                                        target-triple
     -h, --help                         Print help information
+    -g, --gitlab                       Gitlab license scanner output
     -j, --json                         Detailed output as JSON
         --manifest-path <PATH>         Path to Cargo.toml
         --no-default-features          Deactivate default features
