@@ -12,6 +12,7 @@ use clap::{Parser, ValueEnum};
 use std::borrow::Cow;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::{self, IsTerminal};
 use std::path::PathBuf;
 use std::process::exit;
 
@@ -231,7 +232,7 @@ fn run() -> Result<()> {
     let dependencies = get_dependencies_from_cargo_lock(cmd, get_opts)?;
 
     let enable_color = match opt.color {
-        Color::Auto => atty::is(atty::Stream::Stdout),
+        Color::Auto => io::stdin().is_terminal(),
         Color::Always => true,
         Color::Never => false,
     };
