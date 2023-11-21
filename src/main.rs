@@ -105,7 +105,7 @@ fn one_license_per_line(
     }
 }
 
-fn colored<'a, 'b>(s: &'a str, style: &'b Style, enable_color: bool) -> Cow<'a, str> {
+fn colored<'a>(s: &'a str, style: &Style, enable_color: bool) -> Cow<'a, str> {
     if enable_color {
         Cow::Owned(format!("{}", style.paint(s)))
     } else {
@@ -251,10 +251,10 @@ fn run() -> Result<()> {
 
 fn main() {
     exit(match run() {
-        Ok(_) => 0,
+        Ok(()) => 0,
         Err(e) => {
             for cause in e.chain() {
-                eprintln!("{}", cause);
+                eprintln!("{cause}");
             }
             1
         }
