@@ -9,10 +9,11 @@ use cargo_license::{
     GetDependenciesOpt,
 };
 use cargo_metadata::{CargoOpt, MetadataCommand};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::borrow::Cow;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, BTreeSet};
+use std::io::{self, IsTerminal};
 use std::path::PathBuf;
 use std::process::exit;
 
@@ -180,15 +181,16 @@ struct Opt {
     /// Only include resolve dependencies matching the given target-triple.
     filter_platform: Option<String>,
 
-    #[clap(
-        long = "color",
-        name = "WHEN",
-        possible_value = "auto",
-        possible_value = "always",
-        possible_value = "never"
-    )]
+    #[clap(long = "color", name = "WHEN", value_enum, default_value = "auto")]
     /// Coloring
-    color: Option<String>,
+    color: Color,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, ValueEnum, Debug)]
+enum Color {
+    Auto,
+    Always,
+    Never,
 }
 
 fn run() -> Result<()> {
@@ -234,15 +236,10 @@ fn run() -> Result<()> {
 
     let dependencies = get_dependencies_from_cargo_lock(cmd, get_opts)?;
 
-    let enable_color = if let Some(color) = opt.color {
-        match color.as_ref() {
-            "auto" => atty::is(atty::Stream::Stdout),
-            "always" => true,
-            "never" => false,
-            _ => unreachable!(),
-        }
-    } else {
-        atty::is(atty::Stream::Stdout)
+    let enable_color = match opt.color {
+        Color::Auto => io::stdin().is_terminal(),
+        Color::Always => true,
+        Color::Never => false,
     };
 
     if opt.tsv {
@@ -261,7 +258,7 @@ fn run() -> Result<()> {
 
 fn main() {
     exit(match run() {
-        Ok(_) => 0,
+        Ok(()) => 0,
         Err(e) => {
             for cause in e.chain() {
                 eprintln!("{cause}");
