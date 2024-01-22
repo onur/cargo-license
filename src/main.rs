@@ -5,7 +5,8 @@ use ansi_term::Colour::Green;
 use ansi_term::Style;
 use anyhow::Result;
 use cargo_license::{
-    get_dependencies_from_cargo_lock, write_json, write_tsv, DependencyDetails, GetDependenciesOpt,
+    get_dependencies_from_cargo_lock, write_gitlab, write_json, write_tsv, DependencyDetails,
+    GetDependenciesOpt,
 };
 use cargo_metadata::{CargoOpt, MetadataCommand};
 use clap::Parser;
@@ -104,7 +105,7 @@ fn one_license_per_line(
     }
 }
 
-fn colored<'a, 'b>(s: &'a str, style: &'b Style, enable_color: bool) -> Cow<'a, str> {
+fn colored<'a>(s: &'a str, style: &Style, enable_color: bool) -> Cow<'a, str> {
     if enable_color {
         Cow::Owned(format!("{}", style.paint(s)))
     } else {
@@ -142,6 +143,10 @@ struct Opt {
     #[clap(short, long)]
     /// Detailed output as JSON.
     json: bool,
+
+    #[clap(short, long)]
+    /// Gitlab license scanner output
+    gitlab: bool,
 
     #[clap(long)]
     /// Exclude development dependencies
@@ -244,6 +249,8 @@ fn run() -> Result<()> {
         write_tsv(&dependencies)?;
     } else if opt.json {
         write_json(&dependencies)?;
+    } else if opt.gitlab {
+        write_gitlab(&dependencies)?;
     } else if opt.do_not_bundle {
         one_license_per_line(dependencies, opt.authors, enable_color);
     } else {
@@ -257,7 +264,7 @@ fn main() {
         Ok(_) => 0,
         Err(e) => {
             for cause in e.chain() {
-                eprintln!("{}", cause);
+                eprintln!("{cause}");
             }
             1
         }
