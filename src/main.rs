@@ -9,6 +9,8 @@ use cargo_license::{
     GetDependenciesOpt,
 };
 use cargo_metadata::{CargoOpt, MetadataCommand};
+use clap::builder::styling::AnsiColor;
+use clap::builder::Styles;
 use clap::{Parser, ValueEnum};
 use std::borrow::Cow;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
@@ -120,68 +122,82 @@ fn colored<'a>(s: &'a str, style: &Style, enable_color: bool) -> Cow<'a, str> {
     bin_name = "cargo license",
     about = "Cargo subcommand to see licenses of dependencies."
 )]
+#[clap(
+    styles(Styles::styled()
+        .header(AnsiColor::Yellow.on_default())
+        .usage(AnsiColor::Yellow.on_default())
+        .literal(AnsiColor::Green.on_default())
+        .placeholder(AnsiColor::Green.on_default())
+    )
+)]
 struct Opt {
-    #[clap(value_name = "PATH", long)]
+    #[clap(value_name = "PATH", long, display_order(0))]
     /// Path to Cargo.toml.
     manifest_path: Option<PathBuf>,
 
-    #[clap(value_name = "CURRENT_DIR", long)]
+    #[clap(value_name = "CURRENT_DIR", long, display_order(0))]
     /// Current directory of the cargo metadata process.
     current_dir: Option<PathBuf>,
 
-    #[clap(short, long)]
+    #[clap(short, long, display_order(0))]
     /// Display crate authors
     authors: bool,
 
-    #[clap(short, long)]
+    #[clap(short, long, display_order(0))]
     /// Output one license per line.
     do_not_bundle: bool,
 
-    #[clap(short, long)]
+    #[clap(short, long, display_order(0))]
     /// Detailed output as tab-separated-values.
     tsv: bool,
 
-    #[clap(short, long)]
+    #[clap(short, long, display_order(0))]
     /// Detailed output as JSON.
     json: bool,
 
-    #[clap(short, long)]
+    #[clap(short, long, display_order(0))]
     /// Gitlab license scanner output
     gitlab: bool,
 
-    #[clap(long)]
+    #[clap(long, display_order(0))]
     /// Exclude development dependencies
     avoid_dev_deps: bool,
 
-    #[clap(long)]
+    #[clap(long, display_order(0))]
     /// Exclude build dependencies
     avoid_build_deps: bool,
 
-    #[clap(long = "features", value_name = "FEATURE")]
+    #[clap(long = "features", value_name = "FEATURE", display_order(0))]
     /// Space-separated list of features to activate.
     features: Option<Vec<String>>,
 
-    #[clap(long = "all-features")]
+    #[clap(long = "all-features", display_order(0))]
     /// Activate all available features.
     all_features: bool,
 
-    #[clap(long = "no-default-features")]
+    #[clap(long = "no-default-features", display_order(0))]
     /// Deactivate default features
     no_default_features: bool,
 
-    #[clap(long = "direct-deps-only")]
+    #[clap(long = "direct-deps-only", display_order(0))]
     /// Output information only about the root package and don't fetch dependencies.
     direct_deps_only: bool,
 
-    #[clap(long = "root-only")]
+    #[clap(long = "root-only", display_order(0))]
     /// Output information only about the root package.
     root_only: bool,
 
-    #[clap(long = "filter-platform", value_name = "TRIPLE")]
+    #[clap(long = "filter-platform", value_name = "TRIPLE", display_order(0))]
     /// Only include resolve dependencies matching the given target-triple.
     filter_platform: Option<String>,
 
-    #[clap(long = "color", name = "WHEN", value_enum, default_value = "auto")]
+    #[clap(
+        long = "color",
+        name = "WHEN",
+        value_enum,
+        default_value = "auto",
+        display_order(0)
+    )]
     /// Coloring
     color: Color,
 }
