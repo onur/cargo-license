@@ -7,6 +7,7 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/onur/cargo-license"
 edition = "2021"
+rust-version = "1.70"
 
 [dependencies]
 getopts = "0.2.21"
