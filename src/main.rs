@@ -253,7 +253,7 @@ fn run() -> Result<()> {
     let dependencies = get_dependencies_from_cargo_lock(cmd, get_opts)?;
 
     let enable_color = match opt.color {
-        Color::Auto => io::stdin().is_terminal(),
+        Color::Auto => io::stdout().is_terminal(),
         Color::Always => true,
         Color::Never => false,
     };
