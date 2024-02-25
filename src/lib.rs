@@ -19,6 +19,23 @@ fn normalize(license_string: &str) -> String {
     list.join(" OR ")
 }
 
+fn get_proc_macro_node_names(metadata: &Metadata, opt: &GetDependenciesOpt) -> HashSet<String> {
+    let mut proc_macros = HashSet::new();
+    if opt.avoid_proc_macros {
+        for packages in &metadata.packages {
+            for target in &packages.targets {
+                if target.crate_types.contains(&String::from("proc-macro")) {
+                    proc_macros.insert(target.name.clone());
+                    for package in &packages.dependencies {
+                        proc_macros.insert(package.name.clone());
+                    }
+                }
+            }
+        }
+    }
+    proc_macros
+}
+
 fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> Result<HashSet<String>> {
     let mut filter = HashSet::new();
 
@@ -153,6 +170,7 @@ impl TryFrom<&[DependencyDetails]> for GitlabLicenseScanningReport {
 pub struct GetDependenciesOpt {
     pub avoid_dev_deps: bool,
     pub avoid_build_deps: bool,
+    pub avoid_proc_macros: bool,
     pub direct_deps_only: bool,
     pub root_only: bool,
 }
@@ -164,6 +182,7 @@ pub fn get_dependencies_from_cargo_lock(
     let metadata = metadata_command.exec()?;
 
     let filter = get_node_name_filter(&metadata, &opt)?;
+    let proc_macro_filter = get_proc_macro_node_names(&metadata, &opt);
 
     let connected = {
         let resolve = metadata.resolve.as_ref().expect("missing `resolve`");
@@ -219,6 +238,7 @@ pub fn get_dependencies_from_cargo_lock(
         .iter()
         .filter(|p| connected.contains(&p.id))
         .filter(|p| filter.is_empty() || filter.contains(&p.name))
+        .filter(|p| !proc_macro_filter.contains(&p.name))
         .map(DependencyDetails::new)
         .collect::<Vec<_>>();
     detailed_dependencies.sort_unstable();

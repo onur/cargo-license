@@ -167,6 +167,10 @@ struct Opt {
     /// Exclude build dependencies
     avoid_build_deps: bool,
 
+    #[clap(long, display_order(0))]
+    /// Exclude proc_macros dependencies
+    avoid_proc_macros: bool,
+
     #[clap(long = "features", value_name = "FEATURE", display_order(0))]
     /// Space-separated list of features to activate.
     features: Option<Vec<String>>,
@@ -246,6 +250,7 @@ fn run() -> Result<()> {
     let get_opts = GetDependenciesOpt {
         avoid_dev_deps: opt.avoid_dev_deps,
         avoid_build_deps: opt.avoid_build_deps,
+        avoid_proc_macros: opt.avoid_proc_macros,
         direct_deps_only: opt.direct_deps_only,
         root_only: opt.root_only,
     };
