@@ -36,7 +36,7 @@ fn get_proc_macro_node_names(metadata: &Metadata, opt: &GetDependenciesOpt) -> H
     proc_macros
 }
 
-fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> Result<HashSet<String>> {
+fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> HashSet<String> {
     let mut filter = HashSet::new();
 
     let roots = if let Some(root) = metadata.root_package() {
@@ -49,7 +49,7 @@ fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> Result
         for root in roots {
             filter.insert(root.name.clone());
         }
-        return Ok(filter);
+        return filter;
     }
 
     if opt.direct_deps_only {
@@ -60,7 +60,7 @@ fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> Result
             }
         }
     }
-    Ok(filter)
+    filter
 }
 
 #[derive(Debug, Serialize, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
@@ -115,7 +115,9 @@ struct GitlabLicense {
 
 impl GitlabLicense {
     fn parse_licenses(dependency: &DependencyDetails) -> Result<HashSet<Self>> {
-        let Some(license) = &dependency.license else {return Ok(HashSet::new())};
+        let Some(license) = &dependency.license else {
+            return Ok(HashSet::new());
+        };
         let expression = spdx::Expression::parse_mode(license, spdx::ParseMode::LAX)?;
         Ok(expression
             .requirements()
@@ -181,8 +183,8 @@ pub fn get_dependencies_from_cargo_lock(
 ) -> Result<Vec<DependencyDetails>> {
     let metadata = metadata_command.exec()?;
 
-    let filter = get_node_name_filter(&metadata, &opt)?;
-    let proc_macro_filter = get_proc_macro_node_names(&metadata, &opt);
+    let node_name_filter = get_node_name_filter(&metadata, &opt);
+    let proc_macro_exclusions = get_proc_macro_node_names(&metadata, &opt);
 
     let connected = {
         let resolve = metadata.resolve.as_ref().expect("missing `resolve`");
@@ -237,8 +239,8 @@ pub fn get_dependencies_from_cargo_lock(
         .packages
         .iter()
         .filter(|p| connected.contains(&p.id))
-        .filter(|p| filter.is_empty() || filter.contains(&p.name))
-        .filter(|p| !proc_macro_filter.contains(&p.name))
+        .filter(|p| node_name_filter.is_empty() || node_name_filter.contains(&p.name))
+        .filter(|p| !proc_macro_exclusions.contains(&p.name))
         .map(DependencyDetails::new)
         .collect::<Vec<_>>();
     detailed_dependencies.sort_unstable();

@@ -168,7 +168,7 @@ struct Opt {
     avoid_build_deps: bool,
 
     #[clap(long, display_order(0))]
-    /// Exclude proc_macros dependencies
+    /// Exclude `proc_macros` dependencies
     avoid_proc_macros: bool,
 
     #[clap(long = "features", value_name = "FEATURE", display_order(0))]
