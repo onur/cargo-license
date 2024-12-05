@@ -15,7 +15,8 @@ use clap::{Parser, ValueEnum};
 use std::borrow::Cow;
 use std::collections::btree_map::Entry::{Occupied, Vacant};
 use std::collections::{BTreeMap, BTreeSet};
-use std::io::{self, IsTerminal};
+use std::fs::File;
+use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::exit;
 
@@ -23,6 +24,7 @@ fn group_by_license_type(
     dependencies: Vec<DependencyDetails>,
     display_authors: bool,
     enable_color: bool,
+    output_writer: &mut Box<dyn Write>,
 ) {
     let mut table: BTreeMap<String, Vec<DependencyDetails>> = BTreeMap::new();
 
@@ -52,21 +54,25 @@ fn group_by_license_type(
                 .iter()
                 .map(|c| c.authors.clone().unwrap_or_else(|| "N/A".to_owned()))
                 .collect::<BTreeSet<_>>();
-            println!(
+            writeln!(
+                output_writer,
                 "{} ({})\n{}\n{} {}",
                 colored(&license, &Green.bold(), enable_color),
                 crates.len(),
                 crate_names.join(", "),
                 colored("by", &Green.normal(), enable_color),
                 crate_authors.into_iter().collect::<Vec<_>>().join(", ")
-            );
+            )
+            .unwrap();
         } else {
-            println!(
+            writeln!(
+                output_writer,
                 "{} ({}): {}",
                 colored(&license, &Green.bold(), enable_color),
                 crates.len(),
                 crate_names.join(", ")
-            );
+            )
+            .unwrap();
         }
     }
 }
@@ -75,6 +81,7 @@ fn one_license_per_line(
     dependencies: Vec<DependencyDetails>,
     display_authors: bool,
     enable_color: bool,
+    output_writer: &mut Box<dyn Write>,
 ) {
     for dependency in dependencies {
         let name = dependency.name.clone();
@@ -89,21 +96,25 @@ fn one_license_per_line(
         });
         if display_authors {
             let authors = dependency.authors.unwrap_or_else(|| "N/A".to_owned());
-            println!(
+            writeln!(
+                output_writer,
                 "{}: {}, \"{}\", {}, \"{}\"",
                 colored(&name, &Green.bold(), enable_color),
                 version,
                 license,
                 colored("by", &Green.normal(), enable_color),
                 authors
-            );
+            )
+            .unwrap();
         } else {
-            println!(
+            writeln!(
+                output_writer,
                 "{}: {}, \"{}\",",
                 colored(&name, &Green.bold(), enable_color),
                 version,
                 license,
-            );
+            )
+            .unwrap();
         }
     }
 }
@@ -158,6 +169,10 @@ struct Opt {
     #[clap(short, long, display_order(0))]
     /// Gitlab license scanner output
     gitlab: bool,
+
+    #[clap(value_name = "PATH", short, long, display_order(0))]
+    /// Output to file
+    output: Option<PathBuf>,
 
     #[clap(long, display_order(0))]
     /// Exclude development dependencies
@@ -263,16 +278,21 @@ fn run() -> Result<()> {
         Color::Never => false,
     };
 
+    let mut output_writer = match opt.output {
+        Some(o) => Box::new(File::create(o)?) as Box<dyn Write>,
+        None => Box::new(io::stdout()) as Box<dyn Write>,
+    };
+
     if opt.tsv {
-        write_tsv(&dependencies)?;
+        write_tsv(&dependencies, output_writer)?;
     } else if opt.json {
-        write_json(&dependencies)?;
+        write_json(&dependencies, &mut output_writer)?;
     } else if opt.gitlab {
-        write_gitlab(&dependencies)?;
+        write_gitlab(&dependencies, &mut output_writer)?;
     } else if opt.do_not_bundle {
-        one_license_per_line(dependencies, opt.authors, enable_color);
+        one_license_per_line(dependencies, opt.authors, enable_color, &mut output_writer);
     } else {
-        group_by_license_type(dependencies, opt.authors, enable_color);
+        group_by_license_type(dependencies, opt.authors, enable_color, &mut output_writer);
     }
     Ok(())
 }

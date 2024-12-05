@@ -247,11 +247,14 @@ pub fn get_dependencies_from_cargo_lock(
     Ok(detailed_dependencies)
 }
 
-pub fn write_tsv(dependencies: &[DependencyDetails]) -> Result<()> {
+pub fn write_tsv(
+    dependencies: &[DependencyDetails],
+    output_writer: Box<dyn io::Write>,
+) -> Result<()> {
     let mut wtr = csv::WriterBuilder::new()
         .delimiter(b'\t')
         .quote_style(csv::QuoteStyle::Necessary)
-        .from_writer(io::stdout());
+        .from_writer(output_writer);
     for dependency in dependencies {
         wtr.serialize(dependency)?;
     }
@@ -259,14 +262,28 @@ pub fn write_tsv(dependencies: &[DependencyDetails]) -> Result<()> {
     Ok(())
 }
 
-pub fn write_json(dependencies: &[DependencyDetails]) -> Result<()> {
-    println!("{}", serde_json::to_string_pretty(&dependencies)?);
+pub fn write_json(
+    dependencies: &[DependencyDetails],
+    output_writer: &mut Box<dyn io::Write>,
+) -> Result<()> {
+    writeln!(
+        output_writer,
+        "{}",
+        serde_json::to_string_pretty(&dependencies)?
+    )?;
     Ok(())
 }
 
-pub fn write_gitlab(dependencies: &[DependencyDetails]) -> Result<()> {
+pub fn write_gitlab(
+    dependencies: &[DependencyDetails],
+    output_writer: &mut Box<dyn io::Write>,
+) -> Result<()> {
     let dependencies = GitlabLicenseScanningReport::try_from(dependencies)?;
-    println!("{}", serde_json::to_string_pretty(&dependencies)?);
+    writeln!(
+        output_writer,
+        "{}",
+        serde_json::to_string_pretty(&dependencies)?
+    )?;
 
     Ok(())
 }
