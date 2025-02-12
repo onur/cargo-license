@@ -9,14 +9,10 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 
 fn normalize(license_string: &str) -> String {
-    let mut list: Vec<&str> = license_string
-        .split('/')
-        .flat_map(|e| e.split(" OR "))
-        .map(str::trim)
-        .collect();
-    list.sort_unstable();
-    list.dedup();
-    list.join(" OR ")
+    match spdx::Expression::canonicalize(license_string) {
+        Ok(Some(normalized)) => normalized,
+        _ => license_string.into(),
+    }
 }
 
 fn get_proc_macro_node_names(metadata: &Metadata, opt: &GetDependenciesOpt) -> HashSet<String> {
