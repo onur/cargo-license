@@ -46,7 +46,7 @@ pub fn normalize(license_string: &str) -> String {
                     (None, None) => return Some(Ordering::Equal),
                     (Some(_), None) => return Some(Ordering::Greater),
                     (None, Some(_)) => return Some(Ordering::Greater),
-                    (Some(l), Some(r)) => match dbg!(dbg!(l).partial_cmp(dbg!(r))) {
+                    (Some(l), Some(r)) => match l.partial_cmp(r) {
                         None => return None,
                         Some(Ordering::Equal) => continue,
                         Some(Ordering::Less) => return Some(Ordering::Less),
@@ -141,7 +141,7 @@ pub fn normalize(license_string: &str) -> String {
     }
 
     let mut req_stack = Vec::new();
-    let _: Vec<_> = dbg!(license.iter().collect());
+    let _: Vec<_> = license.iter().collect();
     for op in license.iter() {
         match op {
             ExprNode::Req(r) => req_stack.push(LicenseTree::License(&r.req)),
