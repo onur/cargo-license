@@ -44,7 +44,7 @@ pub fn normalize(license_string: &str) -> String {
 
                 match (left, right) {
                     (None, None) => return Some(Ordering::Equal),
-                    (Some(_), None) => return Some(Ordering::Greater),
+                    (Some(_), None) => return Some(Ordering::Less),
                     (None, Some(_)) => return Some(Ordering::Greater),
                     (Some(l), Some(r)) => match l.partial_cmp(r) {
                         None => return None,
@@ -54,8 +54,6 @@ pub fn normalize(license_string: &str) -> String {
                     },
                 }
             }
-
-            // ordering
         }
     }
 
@@ -488,6 +486,16 @@ mod test {
             ("MIT", "MIT"),
             ("MIT OR Apache-2.0", "Apache-2.0 OR MIT"),
             ("Apache-2.0 OR MIT", "Apache-2.0 OR MIT"),
+            (
+                "(Apache-2.0 OR MIT) AND Apache-2.0",
+                "(Apache-2.0 OR MIT) AND Apache-2.0",
+            ),
+            ("(Apache-2.0 OR MIT) AND MIT", "(Apache-2.0 OR MIT) AND MIT"),
+            (
+                "Apache-2.0 AND (Apache-2.0 OR MIT)",
+                "(Apache-2.0 OR MIT) AND Apache-2.0",
+            ),
+            ("MIT AND (Apache-2.0 OR MIT)", "(Apache-2.0 OR MIT) AND MIT"),
             (
                 "(Apache-2.0 AND Unicode-3.0) OR (Apache-2.0 AND MIT)",
                 "(Apache-2.0 AND MIT) OR (Apache-2.0 AND Unicode-3.0)",
