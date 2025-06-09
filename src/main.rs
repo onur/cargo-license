@@ -42,7 +42,7 @@ fn group_by_license_type(
             Occupied(mut e) => {
                 e.get_mut().push(dependency);
             }
-        };
+        }
     }
 
     for (license, crates) in table {

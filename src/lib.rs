@@ -55,7 +55,7 @@ fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> HashSe
     if opt.direct_deps_only {
         for root in roots {
             filter.insert(root.name.clone());
-            for package in root.dependencies.iter() {
+            for package in &root.dependencies {
                 filter.insert(package.name.clone());
             }
         }
@@ -80,18 +80,17 @@ impl DependencyDetails {
         let authors = if package.authors.is_empty() {
             None
         } else {
-            Some(package.authors.to_owned().join("|"))
+            Some(package.authors.clone().join("|"))
         };
         Self {
-            name: package.name.to_owned(),
-            version: package.version.to_owned(),
+            name: package.name.clone(),
+            version: package.version.clone(),
             authors,
-            repository: package.repository.to_owned(),
+            repository: package.repository.clone(),
             license: package.license.as_ref().map(|s| normalize(s)),
-            license_file: package.license_file.to_owned().map(|f| f.into_string()),
+            license_file: package.license_file.clone().map(cargo_metadata::camino::Utf8PathBuf::into_string),
             description: package
-                .description
-                .to_owned()
+                .description.clone()
                 .map(|s| s.trim().replace('\n', " ")),
         }
     }
@@ -121,7 +120,7 @@ impl GitlabLicense {
         let expression = spdx::Expression::parse_mode(license, spdx::ParseMode::LAX)?;
         Ok(expression
             .requirements()
-            .flat_map(|req| {
+            .filter_map(|req| {
                 req.req.license.id().map(|license| Self {
                     id: license.name,
                     name: license.full_name,
@@ -281,7 +280,7 @@ mod test {
         let detailed_dependencies =
             get_dependencies_from_cargo_lock(cmd, GetDependenciesOpt::default()).unwrap();
         assert!(!detailed_dependencies.is_empty());
-        for detailed_dependency in detailed_dependencies.iter() {
+        for detailed_dependency in &detailed_dependencies {
             assert!(
                 detailed_dependency.license.is_some() || detailed_dependency.license_file.is_some()
             );
