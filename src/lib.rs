@@ -12,6 +12,123 @@ use std::collections::{HashMap, HashSet};
 use std::mem::swap;
 use std::{io, iter};
 
+#[derive(PartialEq, Eq, Debug)]
+enum LicenseTree<'a> {
+    License(&'a LicenseReq),
+    Or(Box<LicenseTree<'a>>, Box<LicenseTree<'a>>),
+    And(Box<LicenseTree<'a>>, Box<LicenseTree<'a>>),
+}
+
+impl PartialOrd for LicenseTree<'_> {
+    // Compare based on the string representation, therefore the name of the first license
+    //
+    // No specific preference for AND/OR priority
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        // let mut ordering = Ordering::Equal;
+        let mut self_iter = self.license_iter();
+        let mut other_iter = other.license_iter();
+
+        loop {
+            let left = self_iter.next();
+            let right = other_iter.next();
+
+            match (left, right) {
+                (None, None) => return Some(Ordering::Equal),
+                (Some(_), None) => return Some(Ordering::Less),
+                (None, Some(_)) => return Some(Ordering::Greater),
+                (Some(l), Some(r)) => match l.partial_cmp(r) {
+                    None => return None,
+                    Some(Ordering::Equal) => {}
+                    Some(Ordering::Less) => return Some(Ordering::Less),
+                    Some(Ordering::Greater) => return Some(Ordering::Greater),
+                },
+            }
+        }
+    }
+}
+
+impl LicenseTree<'_> {
+    fn license_iter(&self) -> Box<dyn Iterator<Item = &LicenseReq> + '_> {
+        match self {
+            Self::License(l) => Box::new(iter::once(*l)),
+            Self::Or(left, right) | Self::And(left, right) => {
+                Box::new(left.license_iter().chain(right.license_iter()))
+            }
+        }
+    }
+
+    fn is_or(&self) -> bool {
+        matches!(self, Self::Or(_, _))
+    }
+
+    fn is_and(&self) -> bool {
+        matches!(self, Self::And(_, _))
+    }
+
+    fn serialize(&self) -> String {
+        let mut acc = String::new();
+        self.serialize_inner(&mut acc);
+        acc
+    }
+
+    fn serialize_inner(&self, acc: &mut String) {
+        match self {
+            Self::License(l) => acc.push_str(&l.to_string()),
+            Self::Or(left, right) => {
+                let left_parentheses = left.is_and();
+                let right_parentheses = right.is_and();
+                if left_parentheses {
+                    acc.push('(');
+                }
+
+                left.serialize_inner(acc);
+
+                if left_parentheses {
+                    acc.push(')');
+                }
+
+                acc.push_str(" OR ");
+
+                if right_parentheses {
+                    acc.push('(');
+                }
+
+                right.serialize_inner(acc);
+
+                if right_parentheses {
+                    acc.push(')');
+                }
+            }
+            Self::And(left, right) => {
+                let left_parentheses = left.is_or();
+                let right_parentheses = right.is_or();
+                if left_parentheses {
+                    acc.push('(');
+                }
+
+                left.serialize_inner(acc);
+
+                if left_parentheses {
+                    acc.push(')');
+                }
+
+                acc.push_str(" AND ");
+
+                if right_parentheses {
+                    acc.push('(');
+                }
+
+                right.serialize_inner(acc);
+
+                if right_parentheses {
+                    acc.push(')');
+                }
+            }
+        }
+    }
+}
+
+#[must_use]
 pub fn normalize(license_string: &str) -> String {
     let canon = spdx::Expression::canonicalize(license_string).unwrap_or_default();
 
@@ -21,122 +138,6 @@ pub fn normalize(license_string: &str) -> String {
     ) else {
         return license_string.into();
     };
-
-    #[derive(PartialEq, Eq, Debug)]
-    enum LicenseTree<'a> {
-        License(&'a LicenseReq),
-        Or(Box<LicenseTree<'a>>, Box<LicenseTree<'a>>),
-        And(Box<LicenseTree<'a>>, Box<LicenseTree<'a>>),
-    }
-
-    impl PartialOrd for LicenseTree<'_> {
-        // Compare based on the string representation, therefore the name of the first license
-        //
-        // No specific preference for AND/OR priority
-        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            // let mut ordering = Ordering::Equal;
-            let mut self_iter = self.license_iter();
-            let mut other_iter = other.license_iter();
-
-            loop {
-                let left = self_iter.next();
-                let right = other_iter.next();
-
-                match (left, right) {
-                    (None, None) => return Some(Ordering::Equal),
-                    (Some(_), None) => return Some(Ordering::Less),
-                    (None, Some(_)) => return Some(Ordering::Greater),
-                    (Some(l), Some(r)) => match l.partial_cmp(r) {
-                        None => return None,
-                        Some(Ordering::Equal) => continue,
-                        Some(Ordering::Less) => return Some(Ordering::Less),
-                        Some(Ordering::Greater) => return Some(Ordering::Greater),
-                    },
-                }
-            }
-        }
-    }
-
-    impl LicenseTree<'_> {
-        fn license_iter(&self) -> Box<dyn Iterator<Item = &LicenseReq> + '_> {
-            match self {
-                Self::License(l) => Box::new(iter::once(*l)),
-                Self::Or(left, right) | Self::And(left, right) => {
-                    Box::new(left.license_iter().chain(right.license_iter()))
-                }
-            }
-        }
-
-        fn is_or(&self) -> bool {
-            matches!(self, Self::Or(_, _))
-        }
-
-        fn is_and(&self) -> bool {
-            matches!(self, Self::And(_, _))
-        }
-
-        fn serialize(&self) -> String {
-            let mut acc = String::new();
-            self.serialize_inner(&mut acc);
-            acc
-        }
-
-        fn serialize_inner(&self, acc: &mut String) {
-            match self {
-                Self::License(l) => acc.push_str(&l.to_string()),
-                Self::Or(left, right) => {
-                    let left_parentheses = left.is_and();
-                    let right_parentheses = right.is_and();
-                    if left_parentheses {
-                        acc.push('(');
-                    }
-
-                    left.serialize_inner(acc);
-
-                    if left_parentheses {
-                        acc.push(')');
-                    }
-
-                    acc.push_str(" OR ");
-
-                    if right_parentheses {
-                        acc.push('(');
-                    }
-
-                    right.serialize_inner(acc);
-
-                    if right_parentheses {
-                        acc.push(')');
-                    }
-                }
-                Self::And(left, right) => {
-                    let left_parentheses = left.is_or();
-                    let right_parentheses = right.is_or();
-                    if left_parentheses {
-                        acc.push('(');
-                    }
-
-                    left.serialize_inner(acc);
-
-                    if left_parentheses {
-                        acc.push(')');
-                    }
-
-                    acc.push_str(" AND ");
-
-                    if right_parentheses {
-                        acc.push('(');
-                    }
-
-                    right.serialize_inner(acc);
-
-                    if right_parentheses {
-                        acc.push(')');
-                    }
-                }
-            }
-        }
-    }
 
     let mut req_stack = Vec::new();
     let _: Vec<_> = license.iter().collect();
