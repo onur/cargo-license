@@ -255,7 +255,7 @@ fn run() -> Result<()> {
         root_only: opt.root_only,
     };
 
-    let dependencies = get_dependencies_from_cargo_lock(cmd, get_opts)?;
+    let dependencies = get_dependencies_from_cargo_lock(&cmd, &get_opts)?;
 
     let enable_color = match opt.color {
         Color::Auto => io::stdin().is_terminal(),
