@@ -12,7 +12,6 @@ rust-version = "1.70"
 [dependencies]
 getopts = "0.2.21"
 toml = "0.8.8"
-ansi_term = "0.12.1"
 csv = "1"
 serde = "1"
 serde_derive = "1"
@@ -23,3 +22,4 @@ clap = { version =  "4", features = ["derive"] }
 anyhow = "1"
 spdx = "0.10.0"
 itertools = "0.14.0"
+anstyle = "1.0.11"
