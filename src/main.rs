@@ -1,8 +1,8 @@
 #![deny(clippy::all)]
 #![warn(clippy::pedantic)]
 
-use ansi_term::Colour::Green;
-use ansi_term::Style;
+use anstyle::AnsiColor::Green;
+use anstyle::Style;
 use anyhow::Result;
 use cargo_license::{
     get_dependencies_from_cargo_lock, write_gitlab, write_json, write_tsv, DependencyDetails,
@@ -57,10 +57,18 @@ fn group_by_license_type(
             writeln!(
                 output_writer,
                 "{} ({})\n{}\n{} {}",
-                colored(&license, &Green.bold(), enable_color),
+                colored(
+                    &license,
+                    &Style::new().fg_color(Some(Green.into())).bold(),
+                    enable_color
+                ),
                 crates.len(),
                 crate_names.join(", "),
-                colored("by", &Green.normal(), enable_color),
+                colored(
+                    "by",
+                    &Style::new().fg_color(Some(Green.into())),
+                    enable_color
+                ),
                 crate_authors.into_iter().collect::<Vec<_>>().join(", ")
             )
             .unwrap();
@@ -68,7 +76,11 @@ fn group_by_license_type(
             writeln!(
                 output_writer,
                 "{} ({}): {}",
-                colored(&license, &Green.bold(), enable_color),
+                colored(
+                    &license,
+                    &Style::new().fg_color(Some(Green.into())).bold(),
+                    enable_color
+                ),
                 crates.len(),
                 crate_names.join(", ")
             )
@@ -99,10 +111,18 @@ fn one_license_per_line(
             writeln!(
                 output_writer,
                 "{}: {}, \"{}\", {}, \"{}\"",
-                colored(&name, &Green.bold(), enable_color),
+                colored(
+                    &name,
+                    &Style::new().fg_color(Some(Green.into())).bold(),
+                    enable_color
+                ),
                 version,
                 license,
-                colored("by", &Green.normal(), enable_color),
+                colored(
+                    "by",
+                    &Style::new().fg_color(Some(Green.into())),
+                    enable_color
+                ),
                 authors
             )
             .unwrap();
@@ -110,7 +130,11 @@ fn one_license_per_line(
             writeln!(
                 output_writer,
                 "{}: {}, \"{}\",",
-                colored(&name, &Green.bold(), enable_color),
+                colored(
+                    &name,
+                    &Style::new().fg_color(Some(Green.into())).bold(),
+                    enable_color
+                ),
                 version,
                 license,
             )
@@ -121,7 +145,7 @@ fn one_license_per_line(
 
 fn colored<'a>(s: &'a str, style: &Style, enable_color: bool) -> Cow<'a, str> {
     if enable_color {
-        Cow::Owned(format!("{}", style.paint(s)))
+        Cow::Owned(format!("{style}{s}{style:#}"))
     } else {
         Cow::Borrowed(s)
     }
