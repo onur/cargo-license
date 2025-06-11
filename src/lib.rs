@@ -55,7 +55,7 @@ fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> HashSe
     if opt.direct_deps_only {
         for root in roots {
             filter.insert(root.name.clone());
-            for package in root.dependencies.iter() {
+            for package in &root.dependencies {
                 filter.insert(package.name.clone());
             }
         }
@@ -80,18 +80,21 @@ impl DependencyDetails {
         let authors = if package.authors.is_empty() {
             None
         } else {
-            Some(package.authors.to_owned().join("|"))
+            Some(package.authors.clone().join("|"))
         };
         Self {
-            name: package.name.to_owned(),
-            version: package.version.to_owned(),
+            name: package.name.clone(),
+            version: package.version.clone(),
             authors,
-            repository: package.repository.to_owned(),
+            repository: package.repository.clone(),
             license: package.license.as_ref().map(|s| normalize(s)),
-            license_file: package.license_file.to_owned().map(|f| f.into_string()),
+            license_file: package
+                .license_file
+                .clone()
+                .map(cargo_metadata::camino::Utf8PathBuf::into_string),
             description: package
                 .description
-                .to_owned()
+                .clone()
                 .map(|s| s.trim().replace('\n', " ")),
         }
     }
@@ -121,11 +124,11 @@ impl GitlabLicense {
         let expression = spdx::Expression::parse_mode(license, spdx::ParseMode::LAX)?;
         Ok(expression
             .requirements()
-            .flat_map(|req| {
+            .filter_map(|req| {
                 req.req.license.id().map(|license| Self {
                     id: license.name,
                     name: license.full_name,
-                    url: Default::default(),
+                    url: String::default(),
                 })
             })
             .collect())
@@ -154,7 +157,7 @@ impl TryFrom<&[DependencyDetails]> for GitlabLicenseScanningReport {
                     name: dependency.name,
                     version: dependency.version,
                     package_manager: "cargo",
-                    path: Default::default(),
+                    path: String::default(),
                     licenses: license_ids,
                 })
             })
@@ -168,6 +171,9 @@ impl TryFrom<&[DependencyDetails]> for GitlabLicenseScanningReport {
     }
 }
 
+// This is using bools as flags and all combinations are fine
+// It is not a state machine
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Default)]
 pub struct GetDependenciesOpt {
     pub avoid_dev_deps: bool,
@@ -177,14 +183,21 @@ pub struct GetDependenciesOpt {
     pub root_only: bool,
 }
 
+/// Get the list of dependencies from the Cargo.lock
+///
+/// # Errors
+///
+/// Will error if running the metadata command fails
+// Can't panic in normal operation
+#[allow(clippy::missing_panics_doc)]
 pub fn get_dependencies_from_cargo_lock(
-    metadata_command: MetadataCommand,
-    opt: GetDependenciesOpt,
+    metadata_command: &MetadataCommand,
+    opt: &GetDependenciesOpt,
 ) -> Result<Vec<DependencyDetails>> {
     let metadata = metadata_command.exec()?;
 
-    let node_name_filter = get_node_name_filter(&metadata, &opt);
-    let proc_macro_exclusions = get_proc_macro_node_names(&metadata, &opt);
+    let node_name_filter = get_node_name_filter(&metadata, opt);
+    let proc_macro_exclusions = get_proc_macro_node_names(&metadata, opt);
 
     let connected = {
         let resolve = metadata.resolve.as_ref().expect("missing `resolve`");
@@ -247,6 +260,11 @@ pub fn get_dependencies_from_cargo_lock(
     Ok(detailed_dependencies)
 }
 
+/// Write the dependency information in a tab-separated format to stdout
+///
+/// # Errors
+///
+/// Will error if stdout is closed
 pub fn write_tsv(dependencies: &[DependencyDetails]) -> Result<()> {
     let mut wtr = csv::WriterBuilder::new()
         .delimiter(b'\t')
@@ -259,11 +277,21 @@ pub fn write_tsv(dependencies: &[DependencyDetails]) -> Result<()> {
     Ok(())
 }
 
+/// Write the dependency information in JSON format to stdout
+///
+/// # Errors
+///
+/// Will error if stdout is closed
 pub fn write_json(dependencies: &[DependencyDetails]) -> Result<()> {
     println!("{}", serde_json::to_string_pretty(&dependencies)?);
     Ok(())
 }
 
+/// Write the dependency information in the Gitlab license scanning format to stdout
+///
+/// # Errors
+///
+/// Will error if stdout is closed
 pub fn write_gitlab(dependencies: &[DependencyDetails]) -> Result<()> {
     let dependencies = GitlabLicenseScanningReport::try_from(dependencies)?;
     println!("{}", serde_json::to_string_pretty(&dependencies)?);
@@ -279,9 +307,9 @@ mod test {
     fn test_detailed() {
         let cmd = MetadataCommand::new();
         let detailed_dependencies =
-            get_dependencies_from_cargo_lock(cmd, GetDependenciesOpt::default()).unwrap();
+            get_dependencies_from_cargo_lock(&cmd, &GetDependenciesOpt::default()).unwrap();
         assert!(!detailed_dependencies.is_empty());
-        for detailed_dependency in detailed_dependencies.iter() {
+        for detailed_dependency in &detailed_dependencies {
             assert!(
                 detailed_dependency.license.is_some() || detailed_dependency.license_file.is_some()
             );
