@@ -5,18 +5,204 @@ use cargo_metadata::{
 use itertools::Itertools;
 use semver::Version;
 use serde_derive::Serialize;
+use spdx::expression::ExprNode;
+use spdx::LicenseReq;
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
-use std::io;
+use std::mem::swap;
+use std::{io, iter};
 
-fn normalize(license_string: &str) -> String {
-    let mut list: Vec<&str> = license_string
-        .split('/')
-        .flat_map(|e| e.split(" OR "))
-        .map(str::trim)
-        .collect();
-    list.sort_unstable();
-    list.dedup();
-    list.join(" OR ")
+#[derive(PartialEq, Eq, Debug)]
+enum LicenseTree<'a> {
+    License(&'a LicenseReq),
+    Or(Vec<LicenseTree<'a>>),
+    And(Vec<LicenseTree<'a>>),
+}
+
+impl PartialOrd for LicenseTree<'_> {
+    // Compare based on the string representation, therefore the name of the first license
+    //
+    // No specific preference for AND/OR priority
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl LicenseTree<'_> {
+    // Compare based on the string representation, therefore the name of the first license
+    //
+    // No specific preference for AND/OR priority
+    fn cmp(&self, other: &Self) -> Ordering {
+        // let mut ordering = Ordering::Equal;
+        let mut self_iter = self.license_iter();
+        let mut other_iter = other.license_iter();
+
+        loop {
+            let left = self_iter.next();
+            let right = other_iter.next();
+
+            match (left, right) {
+                (None, None) => return Ordering::Equal,
+                (Some(_), None) => return Ordering::Less,
+                (None, Some(_)) => return Ordering::Greater,
+                (Some(l), Some(r)) => match l.cmp(r) {
+                    Ordering::Equal => {}
+                    Ordering::Less => return Ordering::Less,
+                    Ordering::Greater => return Ordering::Greater,
+                },
+            }
+        }
+    }
+
+    pub fn normalize(&mut self) {
+        match self {
+            Self::License(_) => {}
+            Self::Or(nodes) => {
+                let mut acc = Vec::new();
+                for v in nodes.iter_mut() {
+                    v.normalize();
+                }
+                nodes.retain_mut(|v| {
+                    if let Self::Or(ref mut v) = v {
+                        acc.append(v);
+                        false
+                    } else {
+                        true
+                    }
+                });
+                nodes.append(&mut acc);
+                nodes.sort_by(Self::cmp);
+            }
+            Self::And(nodes) => {
+                let mut acc = Vec::new();
+                for v in nodes.iter_mut() {
+                    v.normalize();
+                }
+                nodes.retain_mut(|v| {
+                    if let Self::And(ref mut v) = v {
+                        acc.append(v);
+                        false
+                    } else {
+                        true
+                    }
+                });
+                nodes.append(&mut acc);
+                nodes.sort_by(Self::cmp);
+            }
+        }
+    }
+
+    fn license_iter(&self) -> Box<dyn Iterator<Item = &LicenseReq> + '_> {
+        match self {
+            Self::License(l) => Box::new(iter::once(*l)),
+            Self::Or(nodes) | Self::And(nodes) => {
+                Box::new(nodes.iter().flat_map(LicenseTree::license_iter))
+            }
+        }
+    }
+
+    fn serialize(&self) -> String {
+        let mut acc = String::new();
+        self.serialize_inner(&mut acc, false);
+        acc
+    }
+
+    fn serialize_inner(&self, acc: &mut String, is_first: bool) {
+        match self {
+            Self::License(l) => acc.push_str(&l.to_string()),
+            Self::Or(v) => {
+                let need_parentheses = v.len() != 1 && is_first;
+                if need_parentheses {
+                    acc.push('(');
+                }
+
+                let mut v_iter = v.iter().peekable();
+                while let Some(node) = v_iter.next() {
+                    node.serialize_inner(acc, true);
+                    if v_iter.peek().is_some() {
+                        acc.push_str(" OR ");
+                    }
+                }
+                if need_parentheses {
+                    acc.push(')');
+                }
+            }
+            Self::And(v) => {
+                let need_parentheses = v.len() != 1 && is_first;
+                if need_parentheses {
+                    acc.push('(');
+                }
+
+                let mut v_iter = v.iter().peekable();
+                while let Some(node) = v_iter.next() {
+                    node.serialize_inner(acc, true);
+                    if v_iter.peek().is_some() {
+                        acc.push_str(" AND ");
+                    }
+                }
+                if need_parentheses {
+                    acc.push(')');
+                }
+            }
+        }
+    }
+}
+
+#[must_use]
+pub fn normalize(license_string: &str) -> String {
+    let canon = spdx::Expression::canonicalize(license_string).unwrap_or_default();
+
+    let Ok(license) = spdx::Expression::parse_mode(
+        canon.as_deref().unwrap_or(license_string),
+        spdx::ParseMode::LAX,
+    ) else {
+        return license_string.into();
+    };
+
+    let mut req_stack = Vec::new();
+    let _: Vec<_> = license.iter().collect();
+    for op in license.iter() {
+        match op {
+            ExprNode::Req(r) => req_stack.push(LicenseTree::License(&r.req)),
+            ExprNode::Op(spdx::expression::Operator::Or) => {
+                let Some(mut left) = req_stack.pop() else {
+                    return license_string.into();
+                };
+                let Some(mut right) = req_stack.pop() else {
+                    return license_string.into();
+                };
+
+                // Order elements here based on the name of the first license that appears
+                if left > right {
+                    swap(&mut left, &mut right);
+                }
+
+                req_stack.push(LicenseTree::Or(vec![left, right]));
+            }
+            ExprNode::Op(spdx::expression::Operator::And) => {
+                let Some(mut left) = req_stack.pop() else {
+                    return license_string.into();
+                };
+                let Some(mut right) = req_stack.pop() else {
+                    return license_string.into();
+                };
+
+                // Order elements here based on the name of the first license that appears
+                if left > right {
+                    swap(&mut left, &mut right);
+                }
+
+                req_stack.push(LicenseTree::And(vec![left, right]));
+            }
+        }
+    }
+
+    let [ref mut tree] = &mut *req_stack else {
+        return license_string.into();
+    };
+
+    tree.normalize();
+    tree.serialize()
 }
 
 fn get_proc_macro_node_names(metadata: &Metadata, opt: &GetDependenciesOpt) -> HashSet<String> {
@@ -330,6 +516,56 @@ mod test {
             assert!(
                 detailed_dependency.license.is_some() || detailed_dependency.license_file.is_some()
             );
+        }
+    }
+
+    #[test]
+    fn test_normalize() {
+        let tests = [
+            ("MIT", "MIT"),
+            ("MIT OR Apache-2.0", "Apache-2.0 OR MIT"),
+            ("Apache-2.0 OR MIT", "Apache-2.0 OR MIT"),
+            (
+                "(Apache-2.0 OR MIT) AND Apache-2.0",
+                "(Apache-2.0 OR MIT) AND Apache-2.0",
+            ),
+            ("(Apache-2.0 OR MIT) AND MIT", "(Apache-2.0 OR MIT) AND MIT"),
+            (
+                "Apache-2.0 AND (Apache-2.0 OR MIT)",
+                "(Apache-2.0 OR MIT) AND Apache-2.0",
+            ),
+            ("MIT AND (Apache-2.0 OR MIT)", "(Apache-2.0 OR MIT) AND MIT"),
+            (
+                "(Apache-2.0 AND Unicode-3.0) OR (Apache-2.0 AND MIT)",
+                "(Apache-2.0 AND MIT) OR (Apache-2.0 AND Unicode-3.0)",
+            ),
+            (
+                "Unicode-3.0 AND (MIT OR Apache-2.0)",
+                "(Apache-2.0 OR MIT) AND Unicode-3.0",
+            ),
+            (
+                "(MIT OR Apache-2.0) AND Unicode-3.0",
+                "(Apache-2.0 OR MIT) AND Unicode-3.0",
+            ),
+            ("MIT AND (MIT OR Apache-2.0)", "(Apache-2.0 OR MIT) AND MIT"),
+            (
+                "((((Apache-2.0 WITH LLVM-exception) OR (Apache-2.0)) AND (OpenSSL)) OR (MIT))",
+                "((Apache-2.0 OR Apache-2.0 WITH LLVM-exception) AND OpenSSL) OR MIT",
+            ),
+            (
+                "Borceux OR MIT AND BitTorrent-1.1",
+                "(BitTorrent-1.1 AND MIT) OR Borceux",
+            ),
+            ("Zlib OR Apache-2.0 OR MIT", "Apache-2.0 OR MIT OR Zlib"),
+            ("MIT OR Zlib OR Apache-2.0", "Apache-2.0 OR MIT OR Zlib"),
+            (
+                "Apache-2.0 WITH LLVM-exception OR Apache-2.0 OR MIT",
+                "Apache-2.0 OR Apache-2.0 WITH LLVM-exception OR MIT",
+            ),
+        ];
+
+        for (i, o) in tests {
+            assert_eq!(normalize(i), o, "Input {i}");
         }
     }
 }
