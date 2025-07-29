@@ -1,6 +1,7 @@
 use anyhow::Result;
 use cargo_metadata::{
-    DepKindInfo, DependencyKind, Metadata, MetadataCommand, Node, NodeDep, Package, PackageId,
+    CrateType, DepKindInfo, DependencyKind, Metadata, MetadataCommand, Node, NodeDep, Package,
+    PackageId,
 };
 use itertools::Itertools;
 use semver::Version;
@@ -210,7 +211,7 @@ fn get_proc_macro_node_names(metadata: &Metadata, opt: &GetDependenciesOpt) -> H
     if opt.avoid_proc_macros {
         for packages in &metadata.packages {
             for target in &packages.targets {
-                if target.crate_types.contains(&String::from("proc-macro")) {
+                if target.crate_types.contains(&CrateType::ProcMacro) {
                     proc_macros.insert(target.name.clone());
                     for package in &packages.dependencies {
                         proc_macros.insert(package.name.clone());
@@ -233,14 +234,14 @@ fn get_node_name_filter(metadata: &Metadata, opt: &GetDependenciesOpt) -> HashSe
 
     if opt.root_only {
         for root in roots {
-            filter.insert(root.name.clone());
+            filter.insert(root.name.as_ref().into());
         }
         return filter;
     }
 
     if opt.direct_deps_only {
         for root in roots {
-            filter.insert(root.name.clone());
+            filter.insert(root.name.as_ref().into());
             for package in &root.dependencies {
                 filter.insert(package.name.clone());
             }
@@ -269,7 +270,7 @@ impl DependencyDetails {
             Some(package.authors.clone().join("|"))
         };
         Self {
-            name: package.name.clone(),
+            name: package.name.as_str().into(),
             version: package.version.clone(),
             authors,
             repository: package.repository.clone(),
@@ -438,8 +439,8 @@ pub fn get_dependencies_from_cargo_lock(
         .packages
         .iter()
         .filter(|p| connected.contains(&p.id))
-        .filter(|p| node_name_filter.is_empty() || node_name_filter.contains(&p.name))
-        .filter(|p| !proc_macro_exclusions.contains(&p.name))
+        .filter(|p| node_name_filter.is_empty() || node_name_filter.contains(p.name.as_ref()))
+        .filter(|p| !proc_macro_exclusions.contains(p.name.as_ref()))
         .map(DependencyDetails::new)
         .collect::<Vec<_>>();
     detailed_dependencies.sort_unstable();
