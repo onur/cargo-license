@@ -260,16 +260,19 @@ pub fn get_dependencies_from_cargo_lock(
     Ok(detailed_dependencies)
 }
 
-/// Write the dependency information in a tab-separated format to stdout
+/// Write the dependency information in a tab-separated format to the output writer.
 ///
 /// # Errors
 ///
-/// Will error if stdout is closed
-pub fn write_tsv(dependencies: &[DependencyDetails]) -> Result<()> {
+/// Will error if output writer is closed
+pub fn write_tsv(
+    dependencies: &[DependencyDetails],
+    output_writer: Box<dyn io::Write>,
+) -> Result<()> {
     let mut wtr = csv::WriterBuilder::new()
         .delimiter(b'\t')
         .quote_style(csv::QuoteStyle::Necessary)
-        .from_writer(io::stdout());
+        .from_writer(output_writer);
     for dependency in dependencies {
         wtr.serialize(dependency)?;
     }
@@ -277,24 +280,38 @@ pub fn write_tsv(dependencies: &[DependencyDetails]) -> Result<()> {
     Ok(())
 }
 
-/// Write the dependency information in JSON format to stdout
+/// Write the dependency information in JSON format to output writer
 ///
 /// # Errors
 ///
-/// Will error if stdout is closed
-pub fn write_json(dependencies: &[DependencyDetails]) -> Result<()> {
-    println!("{}", serde_json::to_string_pretty(&dependencies)?);
+/// Will error if output writer is closed
+pub fn write_json(
+    dependencies: &[DependencyDetails],
+    output_writer: &mut Box<dyn io::Write>,
+) -> Result<()> {
+    writeln!(
+        output_writer,
+        "{}",
+        serde_json::to_string_pretty(&dependencies)?
+    )?;
     Ok(())
 }
 
-/// Write the dependency information in the Gitlab license scanning format to stdout
+/// Write the dependency information in the Gitlab license scanning format to output writer
 ///
 /// # Errors
 ///
-/// Will error if stdout is closed
-pub fn write_gitlab(dependencies: &[DependencyDetails]) -> Result<()> {
+/// Will error if output writer is closed
+pub fn write_gitlab(
+    dependencies: &[DependencyDetails],
+    output_writer: &mut Box<dyn io::Write>,
+) -> Result<()> {
     let dependencies = GitlabLicenseScanningReport::try_from(dependencies)?;
-    println!("{}", serde_json::to_string_pretty(&dependencies)?);
+    writeln!(
+        output_writer,
+        "{}",
+        serde_json::to_string_pretty(&dependencies)?
+    )?;
 
     Ok(())
 }
