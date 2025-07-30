@@ -12,32 +12,30 @@ You can install cargo-license with: `cargo install cargo-license` and
 run it in your project directory with: `cargo license` or `cargo-license`.
 
 ```
-cargo-license 0.5.0
 Cargo subcommand to see licenses of dependencies.
 
-USAGE:
-    cargo license [OPTIONS]
+Usage: cargo license [OPTIONS]
 
-OPTIONS:
-    -a, --authors                      Display crate authors
-        --all-features                 Activate all available features
-        --avoid-build-deps             Exclude build dependencies
-        --avoid-dev-deps               Exclude development dependencies
-        --color <WHEN>                 Coloring [possible values: auto, always, never]
-        --current-dir <CURRENT_DIR>    Current directory of the cargo metadata process
-    -d, --do-not-bundle                Output one license per line
-        --direct-deps-only             Output information only about the root package and don't
-                                       fetch dependencies
-        --features <FEATURE>           Space-separated list of features to activate
-        --filter-platform <TRIPLE>     Only include resolve dependencies matching the given
-                                       target-triple
-    -h, --help                         Print help information
-    -g, --gitlab                       Gitlab license scanner output
-    -j, --json                         Detailed output as JSON
-        --manifest-path <PATH>         Path to Cargo.toml
-        --no-default-features          Deactivate default features
-        --root-only                    Output information only about the root package
-    -t, --tsv                          Detailed output as tab-separated-values
+Options:
+  -a, --authors                    Display crate authors
+      --all-features               Activate all available features
+      --avoid-build-deps           Exclude build dependencies
+      --avoid-dev-deps             Exclude development dependencies
+      --avoid-proc-macros          Exclude `proc_macros` dependencies
+      --color <WHEN>               Coloring [default: auto] [possible values: auto, always, never]
+      --current-dir <CURRENT_DIR>  Current directory of the cargo metadata process
+  -d, --do-not-bundle              Output one license per line
+      --direct-deps-only           Output information only about the root package and don't fetch dependencies
+      --features <FEATURE>         Space-separated list of features to activate
+      --filter-platform <TRIPLE>   Only include resolve dependencies matching the given target-triple
+  -g, --gitlab                     Gitlab license scanner output
+  -j, --json                       Detailed output as JSON
+      --manifest-path <PATH>       Path to Cargo.toml
+      --no-default-features        Deactivate default features
+  -o, --output <PATH>              Output to file
+      --root-only                  Output information only about the root package
+  -t, --tsv                        Detailed output as tab-separated-values
+  -h, --help                       Print help
 ```
 
 ## Example
